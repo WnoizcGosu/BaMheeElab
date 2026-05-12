@@ -28,11 +28,23 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
           <div className="flex justify-between items-start">
             <div>
               <div className="text-sm font-mono text-gray-500 mb-1">ID: {problem.id}</div>
-              <h2 className="text-2xl font-bold text-gray-900">{problem.title}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">{problem.title}</h2>
+                <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                  problem.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
+                  problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {problem.difficulty}
+                </span>
+              </div>
             </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <Link 
+              href={`/admin/problems/${problem.id}/edit`}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
               Edit Problem
-            </button>
+            </Link>
           </div>
           
           <div className="flex gap-6 mt-6">

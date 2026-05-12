@@ -2,13 +2,23 @@ import Link from "next/link";
 import { getProblems } from "@/lib/db/mock-problems";
 import { Plus, Search, FileText } from "lucide-react";
 
-export default async function ProblemsPage() {
-  const problems = await getProblems();
+export default async function ProblemsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+  const { category } = await searchParams;
+  let problems = await getProblems();
+
+  if (category) {
+    problems = problems.filter((p) => p.category === category);
+  } else {
+    // Default to Programming if no category is provided
+    problems = problems.filter((p) => p.category === "Programming" || !p.category || p.category === "General");
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Problem Management</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          {category === "Stat" ? "Statistical Programming Problems" : "Programming Problems"}
+        </h1>
         <Link 
           href="/admin/problems/create" 
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
@@ -36,6 +46,8 @@ export default async function ProblemsPage() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-4 font-medium text-gray-600">ID</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Title</th>
+                <th className="px-6 py-4 font-medium text-gray-600">Category</th>
+                <th className="px-6 py-4 font-medium text-gray-600">Difficulty</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Limits</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Test Cases</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Actions</th>
@@ -56,6 +68,18 @@ export default async function ProblemsPage() {
                       <Link href={`/admin/problems/${problem.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                         {problem.title}
                       </Link>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {problem.category || "General"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                        problem.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
+                        problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {problem.difficulty}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {problem.timeLimit}ms / {problem.memoryLimit}MB

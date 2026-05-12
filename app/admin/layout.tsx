@@ -14,9 +14,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
           </Link>
-          <Link href="/admin/problems" className="flex items-center gap-3 px-4 py-3 text-blue-700 bg-blue-50 rounded-lg font-medium">
+          <Link href="/admin/problems?category=Programming" className="flex items-center gap-3 px-4 py-3 text-blue-700 bg-blue-50 rounded-lg font-medium">
             <FileCode2 size={20} />
             <span>Problems</span>
+          </Link>
+          <Link href="/admin/problems?category=Stat" className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
+            <FileCode2 size={20} />
+            <span>Stat Problems</span>
           </Link>
         </nav>
       </aside>
