@@ -86,55 +86,93 @@ export default function CreateProblemPage() {
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Create New Problem</h1>
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    border: "1px solid var(--border-light)",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--bg-card)",
+    color: "var(--text-primary)",
+    fontSize: 14,
+    outline: "none",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+  };
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="space-y-4">
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    marginBottom: 6,
+  };
+
+  return (
+    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 20px" }}>
+        Create New Problem
+      </h1>
+
+      <div className="card" style={{ overflow: "hidden" }}>
+        <form onSubmit={handleSubmit} style={{ padding: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label style={labelStyle}>Title</label>
               <input
                 required
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                style={inputStyle}
                 placeholder="e.g. A+B Problem"
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--accent-orange)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border-light)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label style={labelStyle}>Description</label>
               <textarea
                 required
                 rows={5}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                style={{ ...inputStyle, resize: "vertical" }}
                 placeholder="Describe the problem..."
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--accent-orange)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border-light)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label style={labelStyle}>Category</label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
+                  style={{ ...inputStyle, cursor: "pointer" }}
                 >
                   <option value="Programming">Programming</option>
                   <option value="Stat">Statistical Programming</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                <label style={labelStyle}>Difficulty</label>
                 <select
                   value={formData.difficulty}
                   onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
+                  style={{ ...inputStyle, cursor: "pointer" }}
                 >
                   <option value="Easy">Easy</option>
                   <option value="Medium">Medium</option>
@@ -143,61 +181,130 @@ export default function CreateProblemPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time Limit (ms)</label>
+                <label style={labelStyle}>Time Limit (ms)</label>
                 <input
                   required
                   type="number"
                   value={formData.timeLimit}
                   onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                  style={inputStyle}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--accent-orange)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-light)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Memory Limit (MB)</label>
+                <label style={labelStyle}>Memory Limit (MB)</label>
                 <input
                   required
                   type="number"
                   value={formData.memoryLimit}
                   onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                  style={inputStyle}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--accent-orange)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-light)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Test Cases</h3>
+          {/* Test Cases Upload */}
+          <div style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 16px" }}>
+              Test Cases
+            </h3>
             
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+            <div
+              style={{
+                border: "2px dashed var(--border-medium)",
+                borderRadius: "var(--radius-md)",
+                padding: 28,
+                textAlign: "center",
+                transition: "all 0.2s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--accent-orange)";
+                e.currentTarget.style.background = "rgba(232, 101, 43, 0.03)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-medium)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
               <input
                 type="file"
                 multiple
                 id="testcases"
-                className="hidden"
+                style={{ display: "none" }}
                 onChange={handleFileChange}
               />
               <label htmlFor="testcases" className="cursor-pointer flex flex-col items-center gap-2">
-                <UploadCloud className="text-gray-400" size={32} />
-                <span className="text-sm font-medium text-blue-600 hover:text-blue-700">Click to upload files</span>
-                <span className="text-xs text-gray-500">.txt, .zip up to 10MB</span>
+                <UploadCloud style={{ color: "var(--text-light)" }} size={32} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-orange)" }}>
+                  Click to upload files
+                </span>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  .txt, .zip up to 10MB
+                </span>
               </label>
             </div>
 
             {testCases.length > 0 && (
-              <ul className="mt-4 space-y-2">
+              <ul style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8, listStyle: "none", padding: 0 }}>
                 {testCases.map((file, idx) => (
-                  <li key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <li
+                    key={idx}
+                    className="flex items-center justify-between"
+                    style={{
+                      padding: "10px 14px",
+                      background: "var(--bg-card-alt)",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--border-light)",
+                    }}
+                  >
                     <div className="flex items-center gap-3">
-                      <File size={18} className="text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700">{file.name}</span>
-                      <span className="text-xs text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
+                      <File size={16} style={{ color: "var(--text-light)" }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+                        {file.name}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        ({(file.size / 1024).toFixed(1)} KB)
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => removeFile(idx)}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                      style={{
+                        padding: 4,
+                        border: "none",
+                        background: "transparent",
+                        color: "var(--text-light)",
+                        cursor: "pointer",
+                        borderRadius: 4,
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "var(--accent-red)";
+                        e.currentTarget.style.background = "rgba(231, 76, 60, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "var(--text-light)";
+                        e.currentTarget.style.background = "transparent";
+                      }}
                     >
                       <X size={16} />
                     </button>
@@ -207,22 +314,59 @@ export default function CreateProblemPage() {
             )}
           </div>
 
-          <div className="border-t border-gray-200 pt-6 flex justify-end gap-3">
+          {/* Submit buttons */}
+          <div
+            className="flex justify-end gap-3"
+            style={{
+              borderTop: "1px solid var(--border-light)",
+              marginTop: 24,
+              paddingTop: 24,
+            }}
+          >
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              style={{
+                padding: "10px 22px",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                background: "transparent",
+                border: "1px solid var(--border-medium)",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--bg-card-alt)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-70"
+              className="flex items-center gap-2"
+              style={{
+                padding: "10px 22px",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "white",
+                background: "linear-gradient(135deg, #E8652B, #D4541E)",
+                border: "none",
+                borderRadius: "var(--radius-sm)",
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+                opacity: isSubmitting ? 0.7 : 1,
+                boxShadow: "0 4px 12px rgba(232, 101, 43, 0.3)",
+                transition: "all 0.2s",
+              }}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} />
                   {uploadingFiles ? "Uploading Files..." : "Saving..."}
                 </>
               ) : (

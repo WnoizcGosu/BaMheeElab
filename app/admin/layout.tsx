@@ -1,32 +1,101 @@
+"use client";
+
 import Link from "next/link";
-import { LayoutDashboard, FileCode2 } from "lucide-react";
+import { LayoutDashboard, FileCode2, BarChart3 } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-[calc(100vh-52px)]" style={{ background: "var(--bg-primary)" }}>
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-gray-800">BaMhee Admin</h1>
+      <aside
+        style={{
+          width: 240,
+          background: "var(--bg-card)",
+          borderRight: "1px solid var(--border-light)",
+          flexShrink: 0,
+          boxShadow: "2px 0 8px rgba(139, 90, 43, 0.04)",
+        }}
+      >
+        <div style={{ padding: "20px 16px 12px" }}>
+          <h2
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              margin: 0,
+              padding: "0 12px",
+            }}
+          >
+            Admin Panel
+          </h2>
         </div>
-        <nav className="mt-6 px-4 space-y-2">
-          <Link href="/admin" className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
-            <LayoutDashboard size={20} />
+        <nav style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <Link
+            href="/admin"
+            className="flex items-center gap-3"
+            style={{
+              padding: "10px 12px",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-secondary)",
+              fontSize: 14,
+              fontWeight: 500,
+              textDecoration: "none",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+              e.currentTarget.style.background = "var(--bg-card-alt)";
+            }}
+            onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <LayoutDashboard size={18} />
             <span>Dashboard</span>
           </Link>
-          <Link href="/admin/problems?category=Programming" className="flex items-center gap-3 px-4 py-3 text-blue-700 bg-blue-50 rounded-lg font-medium">
-            <FileCode2 size={20} />
+          <Link
+            href="/admin/problems?category=Programming"
+            className="flex items-center gap-3"
+            style={{
+              padding: "10px 12px",
+              borderRadius: "var(--radius-sm)",
+              background: "linear-gradient(135deg, rgba(232,101,43,0.08), rgba(232,101,43,0.04))",
+              color: "var(--accent-orange)",
+              fontSize: 14,
+              fontWeight: 600,
+              textDecoration: "none",
+              border: "1px solid rgba(232,101,43,0.15)",
+            }}
+          >
+            <FileCode2 size={18} />
             <span>Problems</span>
           </Link>
-          <Link href="/admin/problems?category=Stat" className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
-            <FileCode2 size={20} />
+          <Link
+            href="/admin/problems?category=Stat"
+            className="flex items-center gap-3"
+            style={{
+              padding: "10px 12px",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-secondary)",
+              fontSize: 14,
+              fontWeight: 500,
+              textDecoration: "none",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+              e.currentTarget.style.background = "var(--bg-card-alt)";
+            }}
+            onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <BarChart3 size={18} />
             <span>Stat Problems</span>
           </Link>
         </nav>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main style={{ flex: 1, padding: 28, overflowY: "auto" }}>
         {children}
       </main>
     </div>
