@@ -6,10 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "socket": "tsx --env-file-if-exists=.env.local lib/socket.ts",
+    "worker": "tsx --env-file-if-exists=.env.local worker/judge.worker.ts",
+    "enqueue": "tsx --env-file-if-exists=.env.local scripts/test-enqueue.ts",
+    "enqueue:wrong": "tsx --env-file-if-exists=.env.local scripts/test-enqueue.ts --wrong",
+    "mock-judge0": "tsx --env-file-if-exists=.env.local scripts/mock-judge0.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
     "bullmq": "^5.76.8",
     "ioredis": "^5.10.1",
     "lucide-react": "^0.400.0",
@@ -17,6 +24,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "uuid": "^10.0.0"
   },
   "devDependencies": {

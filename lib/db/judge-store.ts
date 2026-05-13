@@ -1,8 +1,12 @@
 /**
- * In-memory mock for the Judge pipeline's DB needs.
+ * Mock DB for the Judge pipeline.
+ *
+ * Submissions + leaderboard entries are persisted in Redis so the enqueue
+ * script (one process) and the worker (another process) share state. Problems
+ * stay in-memory since they're identical seed data in every process.
  *
  * Replace these functions with real Prisma/Drizzle calls when the database
- * layer is wired up. Function signatures should stay identical so the worker
+ * layer is wired up — function signatures should stay identical so the worker
  * and callback route don't need to change.
  */
 import type {
@@ -10,6 +14,7 @@ import type {
   SubmissionStatus,
   SubmissionResult,
 } from "@/types/submission";
+import { redis } from "@/lib/redis";
 
 export interface MockTestCase {
   id: string;
@@ -50,15 +55,16 @@ export interface MockLeaderboardEntry {
   updatedAt: string;
 }
 
-// ---------- in-memory stores ----------
+// ---------- redis keys ----------
+
+const subKey = (id: string) => `mock:submission:${id}`;
+const lbKey = (problemId: string, userId: string) =>
+  `mock:lb:${problemId}:${userId}`;
+const lbIndexKey = (problemId: string) => `mock:lb-index:${problemId}`;
+
+// ---------- problems (in-memory seed) ----------
 
 const problems = new Map<string, MockProblem>();
-const submissions = new Map<string, MockSubmissionRecord>();
-const leaderboard = new Map<string, MockLeaderboardEntry>(); // key: `${problemId}:${userId}`
-
-const lbKey = (problemId: string, userId: string) => `${problemId}:${userId}`;
-
-// ---------- seed data ----------
 
 problems.set("p-1", {
   id: "p-1",
@@ -84,8 +90,6 @@ problems.set("p-2", {
   ],
 });
 
-// ---------- problem ----------
-
 export async function getProblemWithTestCases(
   problemId: string
 ): Promise<MockProblem | null> {
@@ -95,9 +99,11 @@ export async function getProblemWithTestCases(
 // ---------- submission ----------
 
 export async function createSubmission(
-  rec: Omit<MockSubmissionRecord, "status" | "score" | "runtime" | "memory" | "resultUrl" | "submittedAt" | "results">
+  rec: Omit<
+    MockSubmissionRecord,
+    "status" | "score" | "runtime" | "memory" | "resultUrl" | "submittedAt" | "results"
+  >
 ): Promise<MockSubmissionRecord> {
-  const now = new Date().toISOString();
   const full: MockSubmissionRecord = {
     ...rec,
     status: "PENDING",
@@ -105,20 +111,28 @@ export async function createSubmission(
     runtime: null,
     memory: null,
     resultUrl: null,
-    submittedAt: now,
+    submittedAt: new Date().toISOString(),
     results: [],
   };
-  submissions.set(rec.id, full);
+  await redis.set(subKey(rec.id), JSON.stringify(full));
   return full;
+}
+
+export async function getSubmission(
+  submissionId: string
+): Promise<MockSubmissionRecord | null> {
+  const raw = await redis.get(subKey(submissionId));
+  return raw ? (JSON.parse(raw) as MockSubmissionRecord) : null;
 }
 
 export async function setSubmissionStatus(
   submissionId: string,
   status: SubmissionStatus
 ): Promise<void> {
-  const s = submissions.get(submissionId);
+  const s = await getSubmission(submissionId);
   if (!s) throw new Error(`submission ${submissionId} not found`);
   s.status = status;
+  await redis.set(subKey(submissionId), JSON.stringify(s));
 }
 
 export async function finalizeSubmission(
@@ -128,19 +142,14 @@ export async function finalizeSubmission(
     "status" | "score" | "runtime" | "memory" | "resultUrl" | "results"
   >
 ): Promise<MockSubmissionRecord> {
-  const s = submissions.get(submissionId);
+  const s = await getSubmission(submissionId);
   if (!s) throw new Error(`submission ${submissionId} not found`);
   Object.assign(s, patch);
+  await redis.set(subKey(submissionId), JSON.stringify(s));
   return s;
 }
 
-export async function getSubmission(
-  submissionId: string
-): Promise<MockSubmissionRecord | null> {
-  return submissions.get(submissionId) ?? null;
-}
-
-// ---------- leaderboard (DB row, not the Redis ZSET) ----------
+// ---------- leaderboard (DB row, separate from the Redis ZSET) ----------
 
 export async function upsertLeaderboardEntry(input: {
   userId: string;
@@ -151,9 +160,12 @@ export async function upsertLeaderboardEntry(input: {
 }): Promise<MockLeaderboardEntry> {
   const key = lbKey(input.problemId, input.userId);
   const now = new Date().toISOString();
-  const existing = leaderboard.get(key);
+  const raw = await redis.get(key);
+  const existing = raw ? (JSON.parse(raw) as MockLeaderboardEntry) : null;
+
+  let entry: MockLeaderboardEntry;
   if (!existing || input.score > existing.bestScore) {
-    const entry: MockLeaderboardEntry = {
+    entry = {
       userId: input.userId,
       problemId: input.problemId,
       bestScore: input.score,
@@ -161,24 +173,35 @@ export async function upsertLeaderboardEntry(input: {
       bestMemory: input.memory,
       updatedAt: now,
     };
-    leaderboard.set(key, entry);
-    return entry;
-  }
-  // Same score but faster runtime → update tie-breakers.
-  if (
+  } else if (
     input.score === existing.bestScore &&
     input.runtime !== null &&
     (existing.bestRuntime === null || input.runtime < existing.bestRuntime)
   ) {
-    existing.bestRuntime = input.runtime;
-    existing.bestMemory = input.memory;
-    existing.updatedAt = now;
+    entry = {
+      ...existing,
+      bestRuntime: input.runtime,
+      bestMemory: input.memory,
+      updatedAt: now,
+    };
+  } else {
+    return existing;
   }
-  return existing;
+
+  await redis.set(key, JSON.stringify(entry));
+  await redis.sadd(lbIndexKey(input.problemId), input.userId);
+  return entry;
 }
 
 export async function getLeaderboardEntries(
   problemId: string
 ): Promise<MockLeaderboardEntry[]> {
-  return [...leaderboard.values()].filter((e) => e.problemId === problemId);
+  const userIds = await redis.smembers(lbIndexKey(problemId));
+  if (userIds.length === 0) return [];
+  const raws = await redis.mget(
+    ...userIds.map((u) => lbKey(problemId, u))
+  );
+  return raws
+    .filter((r): r is string => r !== null)
+    .map((r) => JSON.parse(r) as MockLeaderboardEntry);
 }

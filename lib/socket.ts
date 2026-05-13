@@ -1,25 +1,29 @@
 /**
- * Socket.IO server.
+ * Socket.IO transport for SubmissionUpdateEvent.
  *
- * Two ways to use this module:
+ * The server and the worker run as separate Node processes. We bridge them
+ * through Redis pub/sub:
  *
- *  1. Run it standalone: `npx tsx lib/socket.ts` boots an HTTP+WS server on
- *     SOCKET_PORT (default 3001). The worker imports `emitSubmissionUpdate`
- *     from this file and the io instance is shared via globalThis so emits
- *     reach clients connected to that same server.
- *
- *  2. Import `getIO()` from another long-lived Node process (e.g. the worker
- *     itself) — it lazily attaches to / creates the same singleton.
+ *   server (npm run socket)
+ *     └─ Socket.IO server with @socket.io/redis-adapter — accepts browser
+ *        clients on SOCKET_PORT (default 3001).
+ *   worker (npm run worker)
+ *     └─ @socket.io/redis-emitter — fire-and-forget emit into Redis; the
+ *        server picks it up and delivers to the right user-room. No HTTP
+ *        server bound here, so the worker can run alongside the socket
+ *        server without port conflicts.
  *
  * Client contract:
- *   - On connect, client emits `join` with the userId it wants to receive
- *     events for. Server joins that socket to a room named after the userId.
+ *   - On connect, client emits `join` with the userId it wants events for.
  *   - Server emits `submission:update` (payload = SubmissionUpdateEvent) into
  *     the userId-room.
  */
 import { Server as IOServer } from "socket.io";
 import { createServer, type Server as HttpServer } from "node:http";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Emitter } from "@socket.io/redis-emitter";
 import type { SubmissionUpdateEvent } from "@/types/submission";
+import { redis, createBlockingConnection } from "@/lib/redis";
 
 const SOCKET_PORT = Number(process.env.SOCKET_PORT || 3001);
 const CORS_ORIGIN = process.env.SOCKET_CORS_ORIGIN || "*";
@@ -29,6 +33,8 @@ declare global {
   var __io: IOServer | undefined;
   // eslint-disable-next-line no-var
   var __ioHttp: HttpServer | undefined;
+  // eslint-disable-next-line no-var
+  var __ioEmitter: Emitter | undefined;
 }
 
 function buildIO(): IOServer {
@@ -37,8 +43,12 @@ function buildIO(): IOServer {
     cors: { origin: CORS_ORIGIN, methods: ["GET", "POST"] },
   });
 
+  // Redis adapter — lets other processes (the worker) emit into our rooms.
+  const pubClient = redis;
+  const subClient = createBlockingConnection();
+  io.adapter(createAdapter(pubClient, subClient));
+
   io.on("connection", (socket) => {
-    // Frontend tells us which user this socket belongs to.
     socket.on("join", (userId: string) => {
       if (typeof userId === "string" && userId.length > 0) {
         socket.join(userId);
@@ -56,23 +66,33 @@ function buildIO(): IOServer {
   return io;
 }
 
+/** Boot the full Socket.IO server. Call this only from the standalone process. */
 export function getIO(): IOServer {
   if (!global.__io) global.__io = buildIO();
   return global.__io;
 }
 
+/** Cross-process emitter — no HTTP bind, safe to call from the worker. */
+function getEmitter(): Emitter {
+  if (!global.__ioEmitter) {
+    global.__ioEmitter = new Emitter(redis);
+  }
+  return global.__ioEmitter;
+}
+
 /**
- * Emit a submission update to the owning user's room.
- * This is the only function the worker should need.
+ * Emit a submission update to the owning user's room. Works from any process;
+ * the standalone Socket.IO server picks it up via the Redis adapter and
+ * forwards to connected browser clients.
  */
 export function emitSubmissionUpdate(
   userId: string,
   event: SubmissionUpdateEvent
 ): void {
-  getIO().to(userId).emit("submission:update", event);
+  getEmitter().to(userId).emit("submission:update", event);
 }
 
-// If run directly (`tsx lib/socket.ts`), boot the server.
+// `npm run socket` boots the server.
 if (require.main === module) {
   getIO();
 }
