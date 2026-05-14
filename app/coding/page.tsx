@@ -105,12 +105,7 @@ export default function CodingPage() {
     setOutput("");
   };
 
-  // ── Reset to blank starter (trash icon) ───────────────────────────────────
-  const handleReset = () => {
-    setCode(STARTER_CODE[lang] ?? "");
-    setRunStatus("idle");
-    setOutput("");
-  };
+
 
   // ── Run ───────────────────────────────────────────────────────────────────
   const handleRun = () => {
@@ -270,13 +265,6 @@ export default function CodingPage() {
             {tab === "current" && (
               <div className="flex items-center gap-2 ml-auto">
                 {/* 🗑 Trash = reset to blank starter */}
-                <button
-                  onClick={handleReset}
-                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                  title="Reset to starter code"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
                 <Button variant="outline" size="sm" onClick={handleRun} className="h-8 text-xs gap-1.5">
                   <Play className="w-3 h-3" /> Run
                 </Button>
