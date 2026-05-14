@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProblems } from "@/lib/db/mock-problems";
 import { Plus, Search, FileText } from "lucide-react";
+import { DifficultyBadge } from "@/components/difficulty-badge";
 
 export default async function ProblemsPage() {
   const problems = await getProblems();
@@ -36,6 +37,7 @@ export default async function ProblemsPage() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-4 font-medium text-gray-600">ID</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Title</th>
+                <th className="px-6 py-4 font-medium text-gray-600">Difficulty</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Limits</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Test Cases</th>
                 <th className="px-6 py-4 font-medium text-gray-600">Actions</th>
@@ -44,7 +46,7 @@ export default async function ProblemsPage() {
             <tbody className="divide-y divide-gray-200">
               {problems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     No problems found. Create one to get started.
                   </td>
                 </tr>
@@ -56,6 +58,9 @@ export default async function ProblemsPage() {
                       <Link href={`/admin/problems/${problem.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                         {problem.title}
                       </Link>
+                    </td>
+                    <td className="px-6 py-4">
+                      <DifficultyBadge difficulty={problem.difficulty} />
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {problem.timeLimit}ms / {problem.memoryLimit}MB

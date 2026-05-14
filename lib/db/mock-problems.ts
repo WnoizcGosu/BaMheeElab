@@ -6,6 +6,7 @@ const problems: Problem[] = [
     id: "1",
     title: "A+B Problem",
     description: "Calculate the sum of a and b.",
+    difficulty: "EASY",
     timeLimit: 1000,
     memoryLimit: 256,
     testCases: [

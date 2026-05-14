@@ -1,3 +1,7 @@
+export type Difficulty = "EASY" | "MEDIUM" | "HARD" | "GOD";
+
+export const DIFFICULTIES: Difficulty[] = ["EASY", "MEDIUM", "HARD", "GOD"];
+
 export interface TestCase {
   id: string;
   filename: string;
@@ -12,6 +16,7 @@ export interface Problem {
   id: string;
   title: string;
   description: string;
+  difficulty: Difficulty;
   timeLimit: number;
   memoryLimit: number;
   testCases: TestCase[];

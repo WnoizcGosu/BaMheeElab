@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProblemById } from "@/lib/db/mock-problems";
 import { ArrowLeft, Clock, MemoryStick as Memory, FileText } from "lucide-react";
+import { DifficultyBadge } from "@/components/difficulty-badge";
 
 export default async function ProblemDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,7 +29,10 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
           <div className="flex justify-between items-start">
             <div>
               <div className="text-sm font-mono text-gray-500 mb-1">ID: {problem.id}</div>
-              <h2 className="text-2xl font-bold text-gray-900">{problem.title}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">{problem.title}</h2>
+                <DifficultyBadge difficulty={problem.difficulty} />
+              </div>
             </div>
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
               Edit Problem

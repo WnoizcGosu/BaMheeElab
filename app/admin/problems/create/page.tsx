@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UploadCloud, File, X, Loader2 } from "lucide-react";
+import { DIFFICULTIES, type Difficulty } from "@/types/problem";
 
 export default function CreateProblemPage() {
   const router = useRouter();
@@ -10,9 +11,16 @@ export default function CreateProblemPage() {
   const [testCases, setTestCases] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    difficulty: Difficulty;
+    timeLimit: number;
+    memoryLimit: number;
+  }>({
     title: "",
     description: "",
+    difficulty: "EASY",
     timeLimit: 1000,
     memoryLimit: 256,
   });
@@ -113,6 +121,20 @@ export default function CreateProblemPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
                 placeholder="Describe the problem..."
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+              <select
+                required
+                value={formData.difficulty}
+                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as Difficulty })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
+              >
+                {DIFFICULTIES.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
