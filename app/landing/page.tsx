@@ -111,7 +111,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-base text-gray-500 leading-relaxed mb-8 max-w-md">
-                พร้อมก้าวข้ามขีดจำกัดและสนุกไปกับโจทย์ท้าทายแล้วหรือยัง? ไม่ว่าน้องจะถนัดสาย Python, C หรือ C++ ที่ BamHee E-lab เราพร้อมเปิดพื้นที่ให้น้องๆ ได้ปล่อยของและอัปสกิลให้เก่งกว่าเดิมเสมอ!
+                พร้อมก้าวข้ามขีดจำกัดและสนุกไปกับโจทย์ท้าทายแล้วหรือยัง? ไม่ว่าน้องจะถนัดสาย Python, C หรือ C++ ที่ BaMhee E-lab เราพร้อมเปิดพื้นที่ให้น้องๆ ได้ปล่อยของและอัปสกิลให้เก่งกว่าเดิมเสมอ!
               </p>
 
               <div className="flex items-center gap-4 flex-wrap">

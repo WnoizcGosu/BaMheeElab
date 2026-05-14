@@ -25,14 +25,15 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 } */
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Mitr:wght@200;300;400;500;600;700&family=SN+Pro:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   /* ── Fonts ── */
-  --font-sans: "DM Sans", ui-sans-serif, system-ui;
-  --font-serif: "Noto Serif SC", ui-serif, Georgia;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-default: "SN Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-thai: "Mitr", sans-serif;
+
 
   /* ── BaMhee Palette ── */
   --color-brand-red: #C0392B;
@@ -73,16 +74,20 @@ body {
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans);
+    font-family: var(--font-default);
     -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, .font-display {
-    font-family: var(--font-serif);
+    font-family: var(--font-default);
+  }
+  p{
+    font-family: var(--font-thai);
   }
 
+
   code, .font-code {
-    font-family: var(--font-mono);
+    font-family: var(--font-default);
   }
 }
 
@@ -118,7 +123,7 @@ body {
 
   /* Code editor area */
   .code-area {
-    @apply bg-brand-cream font-mono;
+    @apply bg-brand-cream font-default;
     resize: none;
     outline: none;
   }
