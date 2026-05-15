@@ -1,8 +1,10 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Settings, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react"; // 1. Imported useSession
 
 interface AppNavbarProps {
   username?: string;
@@ -10,12 +12,17 @@ interface AppNavbarProps {
 
 export default function AppNavbar({ username = "User" }: AppNavbarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession(); // 2. Hooked up the session tracker
+
+  // ── Dynamic Mappings ──
+  const fullName = session?.user?.name || username;
+  const userInitial = (session?.user?.name?.[0] || session?.user?.email?.[0] || username?.[0] || "U").toUpperCase();
 
   return (
     <header className="sticky top-0 z-50 bg-brand-red shadow-md">
       <div className="flex items-center justify-between px-6 h-14">
         {/* Logo */}
-        <Link href="/landing" className="flex items-center gap-2 text-white">
+        <Link href="/" className="flex items-center gap-2 text-white">
           <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
             <Home className="w-4 h-4 text-white" />
           </div>
@@ -44,10 +51,28 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          {/* Display full name next to avatar on bigger screens if logged in */}
+          {session?.user?.name && (
+            <span className="text-xs text-white/80 font-medium hidden sm:inline-block max-w-[120px] truncate">
+              {fullName}
+            </span>
+          )}
+
           <Link href="/profile">
-            <div className="w-9 h-9 rounded-full bg-[#F5CBA7] border-2 border-white/30 flex items-center justify-center text-brand-red font-bold text-sm hover:border-white/70 transition-all">
-              {username.slice(0, 1).toUpperCase()}
-            </div>
+            {session?.user?.image ? (
+              /* ── Option A: Real Google Profile Picture ── */
+              <img
+                src={session.user.image}
+                alt={fullName}
+                className="w-9 h-9 rounded-full border-2 border-white/30 object-cover hover:border-white/70 transition-all cursor-pointer"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              /* ── Option B: Fallback to Your Styled Tan Circle ── */
+              <div className="w-9 h-9 rounded-full bg-[#F5CBA7] border-2 border-white/30 flex items-center justify-center text-brand-red font-bold text-sm hover:border-white/70 transition-all font-display cursor-pointer">
+                {userInitial}
+              </div>
+            )}
           </Link>
         </div>
       </div>

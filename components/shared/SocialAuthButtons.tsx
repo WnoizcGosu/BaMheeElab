@@ -1,11 +1,13 @@
 "use client";
+import { signIn } from "next-auth/react";
 
 export default function SocialAuthButtons() {
   return (
     <div className="flex items-center justify-center gap-3 mt-1">
       {/* Google */}
       <button
-        className="w-10 h-10 rounded-full border border-[#E8D5B0] bg-white flex items-center justify-center hover:border-brand-red hover:scale-105 transition-all duration-200"
+        onClick={() => signIn("google", { callbackUrl: "/problems" })}
+        className="w-10 h-10 rounded-full border border-[#E8D5B0] bg-white flex items-center justify-center hover:border-brand-red hover:scale-105 transition-all duration-200 cursor-pointer"
         aria-label="Continue with Google"
       >
         <svg viewBox="0 0 24 24" width="20" height="20">

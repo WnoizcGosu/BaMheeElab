@@ -197,7 +197,7 @@ export default function RegisterPage() {
             <SocialAuthButtons />
 
             <div className="mt-6">
-              <Link href="/landing">
+              <Link href="/">
                 <span className="text-xs text-gray-400 hover:text-brand-red transition-colors cursor-pointer">
                   ← Back to home
                 </span>
