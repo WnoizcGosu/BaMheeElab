@@ -1,22 +1,65 @@
 "use client";
+
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // Modern Next.js router
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BowlIllustration from "@/components/shared/BowlIllustration";
 import SocialAuthButtons from "@/components/shared/SocialAuthButtons";
 import WaveSection from "@/components/shared/WaveSection";
+import { useSession, signIn } from "next-auth/react"; // Pull in signIn action
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession(); // Track login state
   const [showPwd, setShowPwd] = useState(false);
   const [form, setForm] = useState({ username: "", password: "" });
+  
+  // ── Error & Loading States ──
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ── Auto-Redirect if Already Logged In ──
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/problems"); // Smooth SPA transition to problems list
+    }
+  }, [status, router]);
+
+  // ── Form Submission Handler ──
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    window.location.href = "/problems";
-  };
+    setError(null);
+    setLoading(true);
 
+    try {
+      // Trigger NextAuth's native Credentials authorization hook
+      const result = await signIn("credentials", {
+        redirect: false, // Stop automatic server reloads so we can capture custom errors
+        username: form.username,
+        password: form.password,
+      });
+
+      if (result?.error) {
+        // Displays bad passwords or user not found messages from the auth subsystem
+        setError("Invalid username or password");
+      } else {
+        // If successful, our top-level useEffect hook will catch the state change and route them
+        router.push("/problems");
+      }
+    } catch (err) {
+      setError("An unexpected authentication error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (status === "loading") {
+    return <div className="min-h-screen bg-[#1a1010] flex items-center justify-center text-brand-cream font-sans">Loading...</div>;
+  }
+  
   return (
     <div className="min-h-screen bg-[#1a1010] flex items-center justify-center p-6">
       {/* Card wrapper */}
@@ -36,12 +79,19 @@ export default function LoginPage() {
             <h1 className="font-display text-2xl font-bold text-gray-900 mb-1">
               Welcome back!
             </h1>
-            <p className="text-sm text-gray-400 mb-8">
+            <p className="text-sm text-gray-400 mb-6">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="text-brand-red font-semibold hover:underline">
                 Sign up
               </Link>
             </p>
+
+            {/* ── Visual Error Callout Banner ── */}
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 text-xs font-semibold text-brand-red border border-red-100 animate-shake">
+                ⚠️ {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -49,9 +99,13 @@ export default function LoginPage() {
                   Username
                 </label>
                 <Input
+                  required
                   placeholder="your_username"
                   value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  onChange={(e) => {
+                    setError(null);
+                    setForm({ ...form, username: e.target.value });
+                  }}
                   autoComplete="username"
                 />
               </div>
@@ -62,25 +116,29 @@ export default function LoginPage() {
                 </label>
                 <div className="relative">
                   <Input
+                    required
                     type={showPwd ? "text" : "password"}
                     placeholder="••••••••"
                     value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    onChange={(e) => {
+                    setError(null);
+                      setForm({ ...form, password: e.target.value });
+                    }}
                     autoComplete="current-password"
                     className="pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPwd(!showPwd)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-red transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-red transition-colors cursor-pointer"
                   >
                     {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full mt-2 h-11">
-                Login
+              <Button type="submit" disabled={loading} className="w-full mt-2 h-11 cursor-pointer">
+                {loading ? "Verifying..." : "Login"}
               </Button>
             </form>
 
