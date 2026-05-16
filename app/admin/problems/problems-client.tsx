@@ -1,14 +1,16 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, FileText } from "lucide-react";
+import { normalizeDifficulty, formatDifficultyLabel } from "@/lib/testcases";
 
 interface SerializedProblem {
   id: string;
   title: string;
   description: string;
   category: string;
-  difficulty: "Easy" | "Medium" | "Hard";
+  difficulty: "Easy" | "Medium" | "Hard" | "God";
   timeLimit: number;
   memoryLimit: number;
   testCases: { id: string; filename: string }[];
@@ -23,6 +25,25 @@ export default function ProblemsClient({
   problems: SerializedProblem[];
   category?: string;
 }) {
+  const [query, setQuery] = useState("");
+
+  const filteredProblems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return problems;
+
+    return problems.filter((p) => {
+      const difficulty = normalizeDifficulty(p.difficulty).toLowerCase();
+      const category = (p.category || "").toLowerCase();
+      return (
+        p.id.toLowerCase().includes(q) ||
+        p.title.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        category.includes(q) ||
+        difficulty.includes(q)
+      );
+    });
+  }, [problems, query]);
+
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
@@ -71,7 +92,9 @@ export default function ProblemsClient({
             />
             <input
               type="text"
-              placeholder="Search problems..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, ID, category, or difficulty..."
               style={{
                 width: "100%",
                 padding: "10px 16px 10px 40px",
@@ -115,7 +138,7 @@ export default function ProblemsClient({
               </tr>
             </thead>
             <tbody>
-              {problems.length === 0 ? (
+              {filteredProblems.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -125,11 +148,15 @@ export default function ProblemsClient({
                       color: "var(--text-muted)",
                     }}
                   >
-                    No problems found. Create one to get started.
+                    {query.trim()
+                      ? `No problems match "${query.trim()}".`
+                      : "No problems found. Create one to get started."}
                   </td>
                 </tr>
               ) : (
-                problems.map((problem) => (
+                filteredProblems.map((problem) => {
+                  const difficulty = normalizeDifficulty(problem.difficulty);
+                  return (
                   <tr
                     key={problem.id}
                     style={{
@@ -166,14 +193,16 @@ export default function ProblemsClient({
                     <td style={{ padding: "14px 20px" }}>
                       <span
                         className={`badge ${
-                          problem.difficulty === "Easy"
+                          difficulty === "Easy"
                             ? "badge-easy"
-                            : problem.difficulty === "Medium"
-                            ? "badge-medium"
-                            : "badge-hard"
+                            : difficulty === "Medium"
+                              ? "badge-medium"
+                              : difficulty === "Hard"
+                                ? "badge-hard"
+                                : "badge-god"
                         }`}
                       >
-                        {problem.difficulty}
+                        {formatDifficultyLabel(problem.difficulty)}
                       </span>
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 13, color: "var(--text-secondary)" }}>
@@ -203,7 +232,8 @@ export default function ProblemsClient({
                       </Link>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

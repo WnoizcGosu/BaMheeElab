@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
 import { getSubmissionById } from "@/lib/db/mock-submissions";
-import { CheckCircle2, XCircle, Clock, MemoryStick as Memory, Code2 } from "lucide-react";
+import { getProblemById } from "@/lib/db/mock-problems";
+import { CheckCircle2, XCircle, Clock, MemoryStick as Memory, Code2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default async function SubmissionResultPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SubmissionResultPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const submission = await getSubmissionById(id);
 
@@ -11,119 +16,299 @@ export default async function SubmissionResultPage({ params }: { params: Promise
     notFound();
   }
 
+  const problem = await getProblemById(submission.problemId);
   const isPassed = submission.status === "Passed";
+  const passedCount = submission.testCaseResults.filter((tc) => tc.status === "Passed").length;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        
-        {/* Header & Overall Status */}
-        <div className={`p-6 rounded-2xl shadow-sm border ${isPassed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {isPassed ? (
-                <CheckCircle2 className="text-green-600" size={40} />
-              ) : (
-                <XCircle className="text-red-600" size={40} />
-              )}
-              <div>
-                <h1 className={`text-3xl font-bold ${isPassed ? 'text-green-800' : 'text-red-800'}`}>
-                  {submission.status}
-                </h1>
-                <p className={`text-sm mt-1 ${isPassed ? 'text-green-600' : 'text-red-600'}`}>
-                  Submitted on {submission.createdAt.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            <Link 
-              href={`/admin/problems/${submission.problemId}`}
-              className="px-4 py-2 bg-white rounded-lg border shadow-sm text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              Back to Problem
-            </Link>
-          </div>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 24px" }}>
+      <Link
+        href="/submissions"
+        className="flex items-center gap-2"
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: "var(--text-secondary)",
+          textDecoration: "none",
+          marginBottom: 20,
+        }}
+      >
+        <ArrowLeft size={16} />
+        All Submissions
+      </Link>
 
-          <div className="flex gap-6 mt-6">
-            <div className="flex items-center gap-2 bg-white/60 px-4 py-2 rounded-lg border border-white/40 shadow-sm">
-              <Clock className={isPassed ? "text-green-700" : "text-red-700"} size={18} />
-              <span className="font-semibold text-gray-800">{submission.executionTime} ms</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/60 px-4 py-2 rounded-lg border border-white/40 shadow-sm">
-              <Memory className={isPassed ? "text-green-700" : "text-red-700"} size={18} />
-              <span className="font-semibold text-gray-800">{submission.memoryUsed} MB</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/60 px-4 py-2 rounded-lg border border-white/40 shadow-sm">
-              <Code2 className={isPassed ? "text-green-700" : "text-red-700"} size={18} />
-              <span className="font-semibold text-gray-800">{submission.language}</span>
+      {/* Overall status */}
+      <div
+        className="card"
+        style={{
+          padding: 24,
+          marginBottom: 20,
+          border: isPassed
+            ? "1px solid rgba(76, 175, 80, 0.4)"
+            : "1px solid rgba(231, 76, 60, 0.4)",
+          background: isPassed ? "rgba(76, 175, 80, 0.08)" : "rgba(231, 76, 60, 0.08)",
+        }}
+      >
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            {isPassed ? (
+              <CheckCircle2 size={40} style={{ color: "var(--accent-green)" }} />
+            ) : (
+              <XCircle size={40} style={{ color: "var(--accent-red)" }} />
+            )}
+            <div>
+              <h1
+                style={{
+                  fontSize: 28,
+                  fontWeight: 800,
+                  margin: 0,
+                  color: isPassed ? "var(--easy-text)" : "var(--hard-text)",
+                }}
+              >
+                {submission.status.toUpperCase()}
+              </h1>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6 }}>
+                {problem?.title ?? `Problem #${submission.problemId}`} · {submission.language} ·{" "}
+                {submission.createdAt.toLocaleString()}
+              </p>
             </div>
           </div>
+          <Link
+            href={`/admin/problems/${submission.problemId}`}
+            style={{
+              padding: "10px 18px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-light)",
+              borderRadius: "var(--radius-sm)",
+              textDecoration: "none",
+            }}
+          >
+            View Problem
+          </Link>
         </div>
 
-        {/* Test Cases Breakdown */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">Test Cases</h2>
-            <span className="text-sm font-medium text-gray-500">
-              {submission.testCaseResults.filter(tc => tc.status === "Passed").length} / {submission.testCaseResults.length} Passed
+        <div className="flex flex-wrap gap-4" style={{ marginTop: 20 }}>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              padding: "8px 14px",
+              background: "var(--bg-card)",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border-light)",
+            }}
+          >
+            <Clock size={16} style={{ color: "var(--text-muted)" }} />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{submission.executionTime} ms</span>
+          </div>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              padding: "8px 14px",
+              background: "var(--bg-card)",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border-light)",
+            }}
+          >
+            <Memory size={16} style={{ color: "var(--text-muted)" }} />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{submission.memoryUsed} MB</span>
+          </div>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              padding: "8px 14px",
+              background: "var(--bg-card)",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border-light)",
+            }}
+          >
+            <Code2 size={16} style={{ color: "var(--text-muted)" }} />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              {passedCount} / {submission.testCaseResults.length} test cases passed
             </span>
           </div>
-          
-          <div className="divide-y divide-gray-200">
-            {submission.testCaseResults.map((tc, index) => {
-              const tcPassed = tc.status === "Passed";
-              return (
-                <div key={tc.testCaseId} className={`p-6 ${tcPassed ? 'hover:bg-green-50/30' : 'bg-red-50/30'}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      {tcPassed ? (
-                        <CheckCircle2 className="text-green-500" size={20} />
-                      ) : (
-                        <XCircle className="text-red-500" size={20} />
-                      )}
-                      <h3 className="font-semibold text-gray-800">Test Case {index + 1}</h3>
-                    </div>
-                    <div className="text-sm text-gray-500 flex gap-4">
-                      <span>{tc.executionTime} ms</span>
-                      <span>{tc.memoryUsed} MB</span>
-                    </div>
-                  </div>
+        </div>
+      </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Input</div>
-                      <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap">{tc.input}</pre>
+      {/* Test cases */}
+      <div className="card" style={{ overflow: "hidden", marginBottom: 20 }}>
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--border-light)",
+            background: "var(--bg-card-alt)",
+          }}
+        >
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
+            Test Cases
+          </h2>
+        </div>
+
+        <div>
+          {submission.testCaseResults.map((tc, index) => {
+            const tcPassed = tc.status === "Passed";
+            return (
+              <div
+                key={tc.testCaseId}
+                style={{
+                  padding: 20,
+                  borderBottom: "1px solid var(--border-light)",
+                  background: tcPassed ? "transparent" : "rgba(231, 76, 60, 0.04)",
+                }}
+              >
+                <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+                  <div className="flex items-center gap-2">
+                    {tcPassed ? (
+                      <CheckCircle2 size={20} style={{ color: "var(--accent-green)" }} />
+                    ) : (
+                      <XCircle size={20} style={{ color: "var(--accent-red)" }} />
+                    )}
+                    <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
+                      Test Case {index + 1}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        background: tcPassed ? "var(--easy-bg)" : "var(--hard-bg)",
+                        color: tcPassed ? "var(--easy-text)" : "var(--hard-text)",
+                      }}
+                    >
+                      {tc.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    {tc.executionTime} ms · {tc.memoryUsed} MB
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "var(--text-muted)",
+                        marginBottom: 6,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Input
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Expected Output</div>
-                      <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap">{tc.expectedOutput}</pre>
+                    <pre
+                      style={{
+                        margin: 0,
+                        padding: 12,
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                        background: "var(--bg-card-alt)",
+                        border: "1px solid var(--border-light)",
+                        borderRadius: 6,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {tc.input}
+                    </pre>
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "var(--text-muted)",
+                        marginBottom: 6,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Expected Output
                     </div>
-                    <div className={`rounded-lg p-4 border ${tcPassed ? 'bg-green-50/50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                      <div className={`text-xs font-bold uppercase tracking-wider mb-2 ${tcPassed ? 'text-green-600' : 'text-red-600'}`}>
-                        Actual Output
-                      </div>
-                      <pre className={`text-sm font-mono whitespace-pre-wrap ${tcPassed ? 'text-green-900' : 'text-red-900 font-semibold'}`}>
-                        {tc.actualOutput}
-                      </pre>
+                    <pre
+                      style={{
+                        margin: 0,
+                        padding: 12,
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                        background: "var(--bg-card-alt)",
+                        border: "1px solid var(--border-light)",
+                        borderRadius: 6,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {tc.expectedOutput}
+                    </pre>
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: tcPassed ? "var(--easy-text)" : "var(--hard-text)",
+                        marginBottom: 6,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Actual Output
                     </div>
+                    <pre
+                      style={{
+                        margin: 0,
+                        padding: 12,
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                        background: tcPassed ? "var(--easy-bg)" : "var(--hard-bg)",
+                        border: `1px solid ${tcPassed ? "rgba(76,175,80,0.3)" : "rgba(231,76,60,0.35)"}`,
+                        borderRadius: 6,
+                        whiteSpace: "pre-wrap",
+                        color: tcPassed ? "var(--easy-text)" : "var(--hard-text)",
+                        fontWeight: tcPassed ? 400 : 600,
+                      }}
+                    >
+                      {tc.actualOutput}
+                    </pre>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Submitted Code */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-            <h2 className="text-xl font-bold text-gray-900">Submitted Code</h2>
-          </div>
-          <div className="p-0">
-            <pre className="p-6 text-sm font-mono text-gray-800 overflow-x-auto bg-[#FAFAFA]">
-              <code>{submission.code}</code>
-            </pre>
-          </div>
+      {/* Code */}
+      <div className="card" style={{ overflow: "hidden" }}>
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--border-light)",
+            background: "var(--bg-card-alt)",
+          }}
+        >
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
+            Submitted Code
+          </h2>
         </div>
-
+        <pre
+          style={{
+            margin: 0,
+            padding: 20,
+            fontSize: 13,
+            fontFamily: "monospace",
+            color: "var(--text-primary)",
+            background: "var(--bg-card-alt)",
+            overflowX: "auto",
+          }}
+        >
+          <code>{submission.code}</code>
+        </pre>
       </div>
     </div>
   );

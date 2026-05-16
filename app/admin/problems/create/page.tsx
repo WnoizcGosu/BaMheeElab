@@ -2,32 +2,24 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud, File, X, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { TestCasePair, buildTestCasesFromPairs } from "@/lib/testcases";
+import TestCaseUploader from "@/components/admin/test-case-uploader";
 
 export default function CreateProblemPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [testCases, setTestCases] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [pairs, setPairs] = useState<TestCasePair[]>([]);
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "Programming",
-    difficulty: "Easy" as "Easy" | "Medium" | "Hard",
+    difficulty: "Easy" as "Easy" | "Medium" | "Hard" | "God",
     timeLimit: 1000,
     memoryLimit: 256,
   });
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setTestCases((prev) => [...prev, ...Array.from(e.target.files as FileList)]);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setTestCases((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,37 +27,12 @@ export default function CreateProblemPage() {
     setUploadingFiles(true);
 
     try {
-      const uploadedCases = [];
-
-      // Upload test cases to S3/MinIO via Next.js API
-      for (const file of testCases) {
-        const fileFormData = new FormData();
-        fileFormData.append("file", file);
-
-        const uploadRes = await fetch("/api/admin/testcases/upload", {
-          method: "POST",
-          body: fileFormData,
-        });
-
-        if (uploadRes.ok) {
-          const data = await uploadRes.json();
-          uploadedCases.push({
-            id: data.s3Key || Math.random().toString(),
-            filename: data.filename || file.name,
-            inputUrl: data.fileUrl,
-          });
-        } else {
-          console.error("Failed to upload", file.name);
-        }
-      }
-
+      const uploadedCases = pairs.length > 0 ? await buildTestCasesFromPairs(pairs) : [];
       setUploadingFiles(false);
 
       const res = await fetch("/api/admin/problems", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
           testCases: uploadedCases,
@@ -106,6 +73,17 @@ export default function CreateProblemPage() {
     marginBottom: 6,
   };
 
+  const focusHandlers = {
+    onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      e.currentTarget.style.borderColor = "var(--accent-orange)";
+      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
+    },
+    onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      e.currentTarget.style.borderColor = "var(--border-light)";
+      e.currentTarget.style.boxShadow = "none";
+    },
+  };
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto" }}>
       <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 20px" }}>
@@ -124,14 +102,7 @@ export default function CreateProblemPage() {
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 style={inputStyle}
                 placeholder="e.g. A+B Problem"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--accent-orange)";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--border-light)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
+                {...focusHandlers}
               />
             </div>
 
@@ -144,14 +115,7 @@ export default function CreateProblemPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 style={{ ...inputStyle, resize: "vertical" }}
                 placeholder="Describe the problem..."
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--accent-orange)";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--border-light)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
+                {...focusHandlers}
               />
             </div>
 
@@ -171,12 +135,18 @@ export default function CreateProblemPage() {
                 <label style={labelStyle}>Difficulty</label>
                 <select
                   value={formData.difficulty}
-                  onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      difficulty: e.target.value as "Easy" | "Medium" | "Hard" | "God",
+                    })
+                  }
                   style={{ ...inputStyle, cursor: "pointer" }}
                 >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
+                  <option value="Easy">EASY</option>
+                  <option value="Medium">MEDIUM</option>
+                  <option value="Hard">HARD</option>
+                  <option value="God">GOD</option>
                 </select>
               </div>
             </div>
@@ -190,14 +160,7 @@ export default function CreateProblemPage() {
                   value={formData.timeLimit}
                   onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
                   style={inputStyle}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--accent-orange)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border-light)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
+                  {...focusHandlers}
                 />
               </div>
               <div>
@@ -208,120 +171,22 @@ export default function CreateProblemPage() {
                   value={formData.memoryLimit}
                   onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
                   style={inputStyle}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--accent-orange)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border-light)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
+                  {...focusHandlers}
                 />
               </div>
             </div>
           </div>
 
-          {/* Test Cases Upload */}
           <div style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 16px" }}>
               Test Cases
             </h3>
-            
-            <div
-              style={{
-                border: "2px dashed var(--border-medium)",
-                borderRadius: "var(--radius-md)",
-                padding: 28,
-                textAlign: "center",
-                transition: "all 0.2s",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--accent-orange)";
-                e.currentTarget.style.background = "rgba(232, 101, 43, 0.03)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-medium)";
-                e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <input
-                type="file"
-                multiple
-                id="testcases"
-                style={{ display: "none" }}
-                onChange={handleFileChange}
-              />
-              <label htmlFor="testcases" className="cursor-pointer flex flex-col items-center gap-2">
-                <UploadCloud style={{ color: "var(--text-light)" }} size={32} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-orange)" }}>
-                  Click to upload files
-                </span>
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  .txt, .zip up to 10MB
-                </span>
-              </label>
-            </div>
-
-            {testCases.length > 0 && (
-              <ul style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8, listStyle: "none", padding: 0 }}>
-                {testCases.map((file, idx) => (
-                  <li
-                    key={idx}
-                    className="flex items-center justify-between"
-                    style={{
-                      padding: "10px 14px",
-                      background: "var(--bg-card-alt)",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--border-light)",
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <File size={16} style={{ color: "var(--text-light)" }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
-                        {file.name}
-                      </span>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        ({(file.size / 1024).toFixed(1)} KB)
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(idx)}
-                      style={{
-                        padding: 4,
-                        border: "none",
-                        background: "transparent",
-                        color: "var(--text-light)",
-                        cursor: "pointer",
-                        borderRadius: 4,
-                        transition: "all 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "var(--accent-red)";
-                        e.currentTarget.style.background = "rgba(231, 76, 60, 0.08)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "var(--text-light)";
-                        e.currentTarget.style.background = "transparent";
-                      }}
-                    >
-                      <X size={16} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <TestCaseUploader pairs={pairs} onPairsChange={setPairs} />
           </div>
 
-          {/* Submit buttons */}
           <div
             className="flex justify-end gap-3"
-            style={{
-              borderTop: "1px solid var(--border-light)",
-              marginTop: 24,
-              paddingTop: 24,
-            }}
+            style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}
           >
             <button
               type="button"
@@ -335,13 +200,6 @@ export default function CreateProblemPage() {
                 border: "1px solid var(--border-medium)",
                 borderRadius: "var(--radius-sm)",
                 cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--bg-card-alt)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
               }}
             >
               Cancel
@@ -360,8 +218,6 @@ export default function CreateProblemPage() {
                 borderRadius: "var(--radius-sm)",
                 cursor: isSubmitting ? "not-allowed" : "pointer",
                 opacity: isSubmitting ? 0.7 : 1,
-                boxShadow: "0 4px 12px rgba(232, 101, 43, 0.3)",
-                transition: "all 0.2s",
               }}
             >
               {isSubmitting ? (

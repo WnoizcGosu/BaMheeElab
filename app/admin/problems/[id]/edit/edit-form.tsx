@@ -4,19 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Problem } from "@/types/problem";
+import AddTestCasePanel from "@/components/admin/add-test-case-panel";
+import { normalizeDifficulty } from "@/lib/testcases";
 
 export default function EditProblemForm({ problem }: { problem: Problem }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Note: For a real app, you would handle existing test cases vs new test cases separately.
-  // For simplicity in this mock, we only handle updating basic fields and assume existing test cases stay as-is unless modified.
-  
   const [formData, setFormData] = useState({
     title: problem.title,
     description: problem.description,
     category: problem.category && problem.category !== "General" ? problem.category : "Programming",
-    difficulty: problem.difficulty,
+    difficulty: normalizeDifficulty(problem.difficulty),
     timeLimit: problem.timeLimit,
     memoryLimit: problem.memoryLimit,
   });
@@ -92,12 +91,18 @@ export default function EditProblemForm({ problem }: { problem: Problem }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
                 <select
                   value={formData.difficulty}
-                  onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as "Easy" | "Medium" | "Hard" })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      difficulty: e.target.value as "Easy" | "Medium" | "Hard" | "God",
+                    })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
                 >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
+                  <option value="Easy">EASY</option>
+                  <option value="Medium">MEDIUM</option>
+                  <option value="Hard">HARD</option>
+                  <option value="God">GOD</option>
                 </select>
               </div>
             </div>
@@ -124,6 +129,20 @@ export default function EditProblemForm({ problem }: { problem: Problem }) {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Test Cases</h3>
+            {problem.testCases.length > 0 && (
+              <p className="text-sm text-gray-500 mb-4">
+                {problem.testCases.length} existing test case(s)
+              </p>
+            )}
+            <AddTestCasePanel
+              problemId={problem.id}
+              existingTestCases={problem.testCases}
+              variant="inline"
+            />
           </div>
 
           <div className="border-t border-gray-200 pt-6 flex justify-end gap-3">

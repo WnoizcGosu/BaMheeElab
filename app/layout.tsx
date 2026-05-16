@@ -78,8 +78,19 @@ export default function RootLayout({
               </Link>
             </div>
 
-            {/* User Avatar */}
-            <div className="flex items-center gap-3">
+            <Link
+              href="/admin"
+              title="Admin Dashboard"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                textDecoration: "none",
+              }}
+            >
+              <span style={{ color: "white", fontSize: 13, fontWeight: 500, opacity: 0.9 }}>
+                Admin
+              </span>
               <div
                 style={{
                   width: 36,
@@ -93,14 +104,11 @@ export default function RootLayout({
                   color: "white",
                   fontSize: 14,
                   fontWeight: 700,
-                  cursor: "pointer",
-                  transition: "border-color 0.2s",
                 }}
-                className="hover:border-white"
               >
-                W
+                A
               </div>
-            </div>
+            </Link>
           </nav>
         </header>
 

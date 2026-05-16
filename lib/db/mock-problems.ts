@@ -1,4 +1,4 @@
-import { Problem } from "@/types/problem";
+import { Problem, TestCase } from "@/types/problem";
 import fs from "fs";
 import path from "path";
 
@@ -66,6 +66,18 @@ export async function updateProblem(id: string, data: Partial<Omit<Problem, "id"
   problems[index] = updatedProblem;
   writeProblems(problems);
   return updatedProblem;
+}
+
+export async function addTestCasesToProblem(
+  id: string,
+  newCases: TestCase[]
+): Promise<Problem | undefined> {
+  const problem = await getProblemById(id);
+  if (!problem) return undefined;
+
+  return updateProblem(id, {
+    testCases: [...problem.testCases, ...newCases],
+  });
 }
 
 export async function deleteProblem(id: string): Promise<boolean> {
