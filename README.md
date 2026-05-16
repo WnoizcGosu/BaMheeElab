@@ -156,6 +156,42 @@ feature/xxx → branch ของแต่ละคน
 
 ---
 
+## Environment Variables
+
+คัดลอกไฟล์ `.env.example` แล้วแก้ค่า:
+
+```bash
+cp .env.example .env
+```
+
+```env
+# Database
+DATABASE_URL="postgresql://admin:password@localhost:5432/bamheelab"
+
+# Redis
+REDIS_URL="redis://localhost:6379"
+
+# MinIO
+MINIO_ENDPOINT="localhost"
+MINIO_PORT="9000"
+MINIO_ACCESS_KEY="minioadmin"
+MINIO_SECRET_KEY="minioadmin"
+
+# Auth
+NEXTAUTH_SECRET="your-secret-here"  ← รันคำสั่ง: openssl rand -base64 32
+NEXTAUTH_URL="http://localhost:3000"
+
+# Judge0
+JUDGE0_API_URL="http://localhost:2358"
+```
+
+> ⚠️ `NEXTAUTH_SECRET` ต้องเปลี่ยนทุกคน รันคำสั่งนี้เพื่อสร้าง secret ของตัวเอง:
+> ```bash
+> openssl rand -base64 32
+> ```
+
+---
+
 ## Database
 
 Schema ประกอบด้วยตารางหลัก:
@@ -166,3 +202,5 @@ Schema ประกอบด้วยตารางหลัก:
 - `Submission` — การส่งโค้ด
 - `TestCaseResult` — ผลของแต่ละ test case
 - `LeaderboardEntry` — คะแนนสูงสุดของแต่ละ user ต่อโจทย์
+
+---
