@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BaMheeElab — Online Judge Platform
 
-## Getting Started
+## Development
 
-First, run the development server:
+To start the development:
+
+1. Install Docker
+   - Mac/Linux: https://docs.docker.com/engine/install/
+   - Windows: https://docs.docker.com/desktop/
+
+2. Clone the repository and navigate to the project directory
+
+```bash
+git clone https://github.com/WnoizcGosu/BaMheeElab.git
+cd BaMheeElab
+```
+
+3. Copy environment variables
+
+```bash
+cp .env.example .env
+```
+
+4. Start all services with Docker Compose
+
+```bash
+docker compose up -d
+```
+
+5. Install dependencies and run migrations
+
+```bash
+npm install
+npx prisma migrate dev
+```
+
+6. Start the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend**: Next.js + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend**: Next.js API Routes + tRPC + JWT
+- **Database**: PostgreSQL (Prisma ORM)
+- **Queue**: BullMQ (Redis)
+- **File Storage**: MinIO (S3-compatible)
+- **Code Execution**: Judge0 API
+- **Auth**: NextAuth.js (Auth.js v5)
+- **Real-time**: Socket.IO / SSE
 
-## Learn More
+## Team
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Role | Responsibility |
+|------|---------------|
+| คนที่ 1 | Frontend + Authentication |
+| คนที่ 2 | Admin System |
+| คนที่ 3 | Code Submission + Editor |
+| คนที่ 4 | Judge0 + Webhook |
+| คนที่ 5 | Infrastructure + Database |
