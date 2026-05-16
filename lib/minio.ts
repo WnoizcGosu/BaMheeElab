@@ -10,6 +10,7 @@
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   CreateBucketCommand,
   HeadBucketCommand,
 } from "@aws-sdk/client-s3";
@@ -93,4 +94,28 @@ export async function uploadLargeOutput(params: {
 export function shouldOffload(output: string | null | undefined): boolean {
   if (!output) return false;
   return Buffer.byteLength(output, "utf8") > INLINE_OUTPUT_LIMIT_BYTES;
+}
+
+/**
+ * Download a text object from MinIO/S3 given the URL we stored at upload time
+ * (`${endpoint}/${bucket}/${key}`). Used by the worker to fetch test-case
+ * input/output when admin uploaded them as files instead of inlining.
+ */
+export async function downloadTextFromUrl(url: string): Promise<string> {
+  const parsed = new URL(url);
+  const path = parsed.pathname.replace(/^\/+/, "");
+  const slash = path.indexOf("/");
+  if (slash === -1) {
+    throw new Error(`downloadTextFromUrl: cannot parse bucket/key from ${url}`);
+  }
+  const bucket = path.slice(0, slash);
+  const key = path.slice(slash + 1);
+
+  const res = await minioClient.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key })
+  );
+  if (!res.Body) {
+    throw new Error(`downloadTextFromUrl: empty body from ${url}`);
+  }
+  return await res.Body.transformToString("utf-8");
 }

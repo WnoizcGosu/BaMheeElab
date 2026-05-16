@@ -15,23 +15,24 @@ import type {
   SubmissionResult,
 } from "@/types/submission";
 import { prisma } from "@/lib/prisma";
+import { downloadTextFromUrl } from "@/lib/minio";
 
-export interface MockTestCase {
+export interface TestCaseDTO {
   id: string;
   input: string;
   expectedOutput: string;
   isHidden: boolean;
 }
 
-export interface MockProblem {
+export interface ProblemDTO {
   id: string;
   title: string;
   timeLimit: number;   // ms
   memoryLimit: number; // MB
-  testCases: MockTestCase[];
+  testCases: TestCaseDTO[];
 }
 
-export interface MockSubmissionRecord {
+export interface SubmissionDTO {
   id: string;
   userId: string;
   problemId: string;
@@ -46,7 +47,7 @@ export interface MockSubmissionRecord {
   results: SubmissionResult["results"];
 }
 
-export interface MockLeaderboardEntry {
+export interface LeaderboardEntryDTO {
   userId: string;
   problemId: string;
   bestScore: number;
@@ -61,7 +62,7 @@ type ResultRow = SubmissionResult["results"][number];
 
 export async function getProblemWithTestCases(
   problemId: string
-): Promise<MockProblem | null> {
+): Promise<ProblemDTO | null> {
   const p = await prisma.problem.findUnique({
     where: { id: problemId },
     include: {
@@ -69,25 +70,33 @@ export async function getProblemWithTestCases(
     },
   });
   if (!p) return null;
+
+  const testCases: TestCaseDTO[] = await Promise.all(
+    p.test_cases.map(async (tc) => {
+      const input =
+        tc.input_content ?? (tc.input_url ? await downloadTextFromUrl(tc.input_url) : null);
+      const expectedOutput =
+        tc.output_content ?? (tc.output_url ? await downloadTextFromUrl(tc.output_url) : null);
+      if (input == null || expectedOutput == null) {
+        throw new Error(
+          `test case ${tc.id} has no input/output (neither inline content nor URL)`
+        );
+      }
+      return {
+        id: tc.id,
+        input,
+        expectedOutput,
+        isHidden: !tc.is_public,
+      };
+    })
+  );
+
   return {
     id: p.id,
     title: p.title,
     timeLimit: p.time_limit,
     memoryLimit: p.memory_limit,
-    testCases: p.test_cases.map((tc) => {
-      if (tc.input_content == null || tc.output_content == null) {
-        throw new Error(
-          `test case ${tc.id} has only URL storage (${tc.input_url}); ` +
-            `inline content fetch from MinIO not implemented yet`
-        );
-      }
-      return {
-        id: tc.id,
-        input: tc.input_content,
-        expectedOutput: tc.output_content,
-        isHidden: !tc.is_public,
-      };
-    }),
+    testCases,
   };
 }
 
@@ -95,10 +104,10 @@ export async function getProblemWithTestCases(
 
 export async function createSubmission(
   rec: Omit<
-    MockSubmissionRecord,
+    SubmissionDTO,
     "status" | "score" | "runtime" | "memory" | "resultUrl" | "submittedAt" | "results"
   >
-): Promise<MockSubmissionRecord> {
+): Promise<SubmissionDTO> {
   const s = await prisma.submission.create({
     data: {
       id: rec.id,
@@ -126,7 +135,7 @@ export async function createSubmission(
 
 export async function getSubmission(
   submissionId: string
-): Promise<MockSubmissionRecord | null> {
+): Promise<SubmissionDTO | null> {
   const s = await prisma.submission.findUnique({
     where: { id: submissionId },
     include: {
@@ -174,10 +183,10 @@ export async function setSubmissionStatus(
 export async function finalizeSubmission(
   submissionId: string,
   patch: Pick<
-    MockSubmissionRecord,
+    SubmissionDTO,
     "status" | "score" | "runtime" | "memory" | "resultUrl" | "results"
   >
-): Promise<MockSubmissionRecord> {
+): Promise<SubmissionDTO> {
   // Re-runs can happen on retry; wipe prior rows so we don't double-write.
   await prisma.$transaction([
     prisma.testCaseResult.deleteMany({ where: { submission_id: submissionId } }),
@@ -218,7 +227,7 @@ export async function upsertLeaderboardEntry(input: {
   score: number;
   runtime: number | null;
   memory: number | null;
-}): Promise<MockLeaderboardEntry> {
+}): Promise<LeaderboardEntryDTO> {
   const key = {
     user_id_problem_id: { user_id: input.userId, problem_id: input.problemId },
   };
@@ -270,7 +279,7 @@ export async function upsertLeaderboardEntry(input: {
 
 export async function getLeaderboardEntries(
   problemId: string
-): Promise<MockLeaderboardEntry[]> {
+): Promise<LeaderboardEntryDTO[]> {
   const rows = await prisma.leaderboardEntry.findMany({
     where: { problem_id: problemId },
     orderBy: [{ best_score: "desc" }, { best_runtime: "asc" }],

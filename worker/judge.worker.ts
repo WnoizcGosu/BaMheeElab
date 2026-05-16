@@ -38,7 +38,7 @@ import {
   setSubmissionStatus,
   finalizeSubmission,
   upsertLeaderboardEntry,
-  type MockTestCase,
+  type TestCaseDTO,
 } from "@/lib/db/judge-store";
 import { emitSubmissionUpdate } from "@/lib/socket";
 import {
@@ -88,7 +88,7 @@ async function maybeOffload(
 
 async function judgeOneTestCase(
   submissionId: string,
-  tc: MockTestCase,
+  tc: TestCaseDTO,
   language: JudgeJobPayload["language"],
   sourceCode: string,
   timeLimitMs: number,
