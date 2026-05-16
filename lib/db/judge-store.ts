@@ -1,20 +1,20 @@
 /**
- * Mock DB for the Judge pipeline.
+ * Judge pipeline data layer.
  *
- * Submissions + leaderboard entries are persisted in Redis so the enqueue
- * script (one process) and the worker (another process) share state. Problems
- * stay in-memory since they're identical seed data in every process.
+ * Backed by Postgres via Prisma (schema lives in prisma/schema.prisma, owned
+ * by the infra team). Function signatures are camelCase to match the rest of
+ * the codebase; the Prisma schema uses snake_case columns, so we map at the
+ * boundary inside each function.
  *
- * Replace these functions with real Prisma/Drizzle calls when the database
- * layer is wired up — function signatures should stay identical so the worker
- * and callback route don't need to change.
+ * Leaderboard ranking ZSET lives in Redis (lib/redis.ts) — this file persists
+ * the authoritative LeaderboardEntry row only.
  */
 import type {
   Language,
   SubmissionStatus,
   SubmissionResult,
 } from "@/types/submission";
-import { redis } from "@/lib/redis";
+import { prisma } from "@/lib/prisma";
 
 export interface MockTestCase {
   id: string;
@@ -55,45 +55,40 @@ export interface MockLeaderboardEntry {
   updatedAt: string;
 }
 
-// ---------- redis keys ----------
+type ResultRow = SubmissionResult["results"][number];
 
-const subKey = (id: string) => `mock:submission:${id}`;
-const lbKey = (problemId: string, userId: string) =>
-  `mock:lb:${problemId}:${userId}`;
-const lbIndexKey = (problemId: string) => `mock:lb-index:${problemId}`;
-
-// ---------- problems (in-memory seed) ----------
-
-const problems = new Map<string, MockProblem>();
-
-problems.set("p-1", {
-  id: "p-1",
-  title: "A+B Problem",
-  timeLimit: 1000,
-  memoryLimit: 256,
-  testCases: [
-    { id: "tc-1", input: "5 5", expectedOutput: "10", isHidden: false },
-    { id: "tc-2", input: "5 15", expectedOutput: "20", isHidden: false },
-    { id: "tc-3", input: "100 200", expectedOutput: "300", isHidden: true },
-    { id: "tc-4", input: "-1 1", expectedOutput: "0", isHidden: true },
-  ],
-});
-
-problems.set("p-2", {
-  id: "p-2",
-  title: "Echo",
-  timeLimit: 1000,
-  memoryLimit: 256,
-  testCases: [
-    { id: "tc-1", input: "hello", expectedOutput: "hello", isHidden: false },
-    { id: "tc-2", input: "world", expectedOutput: "world", isHidden: true },
-  ],
-});
+// ---------- problems ----------
 
 export async function getProblemWithTestCases(
   problemId: string
 ): Promise<MockProblem | null> {
-  return problems.get(problemId) ?? null;
+  const p = await prisma.problem.findUnique({
+    where: { id: problemId },
+    include: {
+      test_cases: { orderBy: { order_index: "asc" } },
+    },
+  });
+  if (!p) return null;
+  return {
+    id: p.id,
+    title: p.title,
+    timeLimit: p.time_limit,
+    memoryLimit: p.memory_limit,
+    testCases: p.test_cases.map((tc) => {
+      if (tc.input_content == null || tc.output_content == null) {
+        throw new Error(
+          `test case ${tc.id} has only URL storage (${tc.input_url}); ` +
+            `inline content fetch from MinIO not implemented yet`
+        );
+      }
+      return {
+        id: tc.id,
+        input: tc.input_content,
+        expectedOutput: tc.output_content,
+        isHidden: !tc.is_public,
+      };
+    }),
+  };
 }
 
 // ---------- submission ----------
@@ -104,35 +99,76 @@ export async function createSubmission(
     "status" | "score" | "runtime" | "memory" | "resultUrl" | "submittedAt" | "results"
   >
 ): Promise<MockSubmissionRecord> {
-  const full: MockSubmissionRecord = {
-    ...rec,
-    status: "PENDING",
-    score: 0,
-    runtime: null,
-    memory: null,
-    resultUrl: null,
-    submittedAt: new Date().toISOString(),
+  const s = await prisma.submission.create({
+    data: {
+      id: rec.id,
+      user_id: rec.userId,
+      problem_id: rec.problemId,
+      language: rec.language,
+      source_code: rec.sourceCode,
+    },
+  });
+  return {
+    id: s.id,
+    userId: s.user_id,
+    problemId: s.problem_id,
+    language: s.language as Language,
+    sourceCode: s.source_code,
+    status: s.status as SubmissionStatus,
+    score: s.score,
+    runtime: s.runtime,
+    memory: s.memory,
+    resultUrl: s.result_url,
+    submittedAt: s.submitted_at.toISOString(),
     results: [],
   };
-  await redis.set(subKey(rec.id), JSON.stringify(full));
-  return full;
 }
 
 export async function getSubmission(
   submissionId: string
 ): Promise<MockSubmissionRecord | null> {
-  const raw = await redis.get(subKey(submissionId));
-  return raw ? (JSON.parse(raw) as MockSubmissionRecord) : null;
+  const s = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: {
+      test_case_results: {
+        include: { test_case: true },
+      },
+    },
+  });
+  if (!s) return null;
+  const results: ResultRow[] = s.test_case_results.map((r) => ({
+    testCaseId: r.test_case_id,
+    passed: r.passed,
+    runtime: r.runtime,
+    memory: r.memory,
+    actualOutput: r.actual_output,
+    expectedOutput: r.test_case.is_public ? r.test_case.output_content : null,
+    errorMessage: r.error_message,
+  }));
+  return {
+    id: s.id,
+    userId: s.user_id,
+    problemId: s.problem_id,
+    language: s.language as Language,
+    sourceCode: s.source_code,
+    status: s.status as SubmissionStatus,
+    score: s.score,
+    runtime: s.runtime,
+    memory: s.memory,
+    resultUrl: s.result_url,
+    submittedAt: s.submitted_at.toISOString(),
+    results,
+  };
 }
 
 export async function setSubmissionStatus(
   submissionId: string,
   status: SubmissionStatus
 ): Promise<void> {
-  const s = await getSubmission(submissionId);
-  if (!s) throw new Error(`submission ${submissionId} not found`);
-  s.status = status;
-  await redis.set(subKey(submissionId), JSON.stringify(s));
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: { status },
+  });
 }
 
 export async function finalizeSubmission(
@@ -142,14 +178,39 @@ export async function finalizeSubmission(
     "status" | "score" | "runtime" | "memory" | "resultUrl" | "results"
   >
 ): Promise<MockSubmissionRecord> {
-  const s = await getSubmission(submissionId);
-  if (!s) throw new Error(`submission ${submissionId} not found`);
-  Object.assign(s, patch);
-  await redis.set(subKey(submissionId), JSON.stringify(s));
-  return s;
+  // Re-runs can happen on retry; wipe prior rows so we don't double-write.
+  await prisma.$transaction([
+    prisma.testCaseResult.deleteMany({ where: { submission_id: submissionId } }),
+    prisma.submission.update({
+      where: { id: submissionId },
+      data: {
+        status: patch.status,
+        score: patch.score,
+        runtime: patch.runtime,
+        memory: patch.memory,
+        result_url: patch.resultUrl,
+        judged_at: new Date(),
+        test_case_results: {
+          create: patch.results.map((r) => ({
+            test_case_id: r.testCaseId,
+            passed: r.passed,
+            status: r.passed ? "ACCEPTED" : patch.status,
+            runtime: r.runtime,
+            memory: r.memory,
+            actual_output: r.actualOutput,
+            error_message: r.errorMessage,
+          })),
+        },
+      },
+    }),
+  ]);
+
+  const updated = await getSubmission(submissionId);
+  if (!updated) throw new Error(`submission ${submissionId} vanished after finalize`);
+  return updated;
 }
 
-// ---------- leaderboard (DB row, separate from the Redis ZSET) ----------
+// ---------- leaderboard (authoritative row; ZSET in Redis is for ranking) ----------
 
 export async function upsertLeaderboardEntry(input: {
   userId: string;
@@ -158,50 +219,68 @@ export async function upsertLeaderboardEntry(input: {
   runtime: number | null;
   memory: number | null;
 }): Promise<MockLeaderboardEntry> {
-  const key = lbKey(input.problemId, input.userId);
-  const now = new Date().toISOString();
-  const raw = await redis.get(key);
-  const existing = raw ? (JSON.parse(raw) as MockLeaderboardEntry) : null;
+  const key = {
+    user_id_problem_id: { user_id: input.userId, problem_id: input.problemId },
+  };
 
-  let entry: MockLeaderboardEntry;
-  if (!existing || input.score > existing.bestScore) {
-    entry = {
-      userId: input.userId,
-      problemId: input.problemId,
-      bestScore: input.score,
-      bestRuntime: input.runtime,
-      bestMemory: input.memory,
-      updatedAt: now,
-    };
+  const existing = await prisma.leaderboardEntry.findUnique({ where: key });
+
+  let entry;
+  if (!existing || input.score > existing.best_score) {
+    entry = await prisma.leaderboardEntry.upsert({
+      where: key,
+      create: {
+        user_id: input.userId,
+        problem_id: input.problemId,
+        best_score: input.score,
+        best_runtime: input.runtime,
+        best_memory: input.memory,
+      },
+      update: {
+        best_score: input.score,
+        best_runtime: input.runtime,
+        best_memory: input.memory,
+      },
+    });
   } else if (
-    input.score === existing.bestScore &&
+    input.score === existing.best_score &&
     input.runtime !== null &&
-    (existing.bestRuntime === null || input.runtime < existing.bestRuntime)
+    (existing.best_runtime === null || input.runtime < existing.best_runtime)
   ) {
-    entry = {
-      ...existing,
-      bestRuntime: input.runtime,
-      bestMemory: input.memory,
-      updatedAt: now,
-    };
+    entry = await prisma.leaderboardEntry.update({
+      where: key,
+      data: {
+        best_runtime: input.runtime,
+        best_memory: input.memory,
+      },
+    });
   } else {
-    return existing;
+    entry = existing;
   }
 
-  await redis.set(key, JSON.stringify(entry));
-  await redis.sadd(lbIndexKey(input.problemId), input.userId);
-  return entry;
+  return {
+    userId: entry.user_id,
+    problemId: entry.problem_id,
+    bestScore: entry.best_score,
+    bestRuntime: entry.best_runtime,
+    bestMemory: entry.best_memory,
+    updatedAt: entry.updated_at.toISOString(),
+  };
 }
 
 export async function getLeaderboardEntries(
   problemId: string
 ): Promise<MockLeaderboardEntry[]> {
-  const userIds = await redis.smembers(lbIndexKey(problemId));
-  if (userIds.length === 0) return [];
-  const raws = await redis.mget(
-    ...userIds.map((u) => lbKey(problemId, u))
-  );
-  return raws
-    .filter((r): r is string => r !== null)
-    .map((r) => JSON.parse(r) as MockLeaderboardEntry);
+  const rows = await prisma.leaderboardEntry.findMany({
+    where: { problem_id: problemId },
+    orderBy: [{ best_score: "desc" }, { best_runtime: "asc" }],
+  });
+  return rows.map((r) => ({
+    userId: r.user_id,
+    problemId: r.problem_id,
+    bestScore: r.best_score,
+    bestRuntime: r.best_runtime,
+    bestMemory: r.best_memory,
+    updatedAt: r.updated_at.toISOString(),
+  }));
 }

@@ -11,7 +11,10 @@
     "worker": "tsx --env-file-if-exists=.env.local worker/judge.worker.ts",
     "enqueue": "tsx --env-file-if-exists=.env.local scripts/test-enqueue.ts",
     "enqueue:wrong": "tsx --env-file-if-exists=.env.local scripts/test-enqueue.ts --wrong",
-    "mock-judge0": "tsx --env-file-if-exists=.env.local scripts/mock-judge0.ts"
+    "mock-judge0": "tsx --env-file-if-exists=.env.local scripts/mock-judge0.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed-dev.ts",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
