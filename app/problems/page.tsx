@@ -1,58 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import { Search, BookOpen, Heart, ChevronRight, CheckCircle, Circle, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, ChevronRight, CheckCircle, Circle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
-import { cn } from "@/lib/utils";
 
-// ── Data ──────────────────────────────────────────────────────────────────
-const topics = [];
-
-const categories = [];
-
-const problems = [
-  {
-    id: 1, title: "A + B Problems",
-    difficulty: "Easy",
-    status: "solved",   tags: ["Math"],
-  },
-  {
-    id: 2, title: "Two Sum",
-    difficulty: "Easy", 
-    status: "solved",   tags: ["Array"],
-  },
-  {
-    id: 3, title: "Reverse String",
-    difficulty: "Easy",  
-    status: "solved",   tags: ["String"],
-  },
-  {
-    id: 4, title: "Merge Sorted Arrays",
-    difficulty: "Medium",
-    status: "attempted",tags: ["Array", "Two Pointers"],
-  },
-  {
-    id: 5, title: "Linked List Cycle",
-    difficulty: "Medium",
-    status: "unsolved", tags: ["Linked List"],
-  },
-  {
-    id: 6, title: "Binary Search",
-    difficulty: "Easy", 
-    status: "solved",   tags: ["Array", "Binary Search"],
-  },
-  {
-    id: 7, title: "Matrix Rotation",
-    difficulty: "Medium",
-    status: "unsolved", tags: ["Math", "Matrix"],
-  },
-  {
-    id: 8, title: "Longest Common Subsequence",
-    difficulty: "Hard",  
-    status: "unsolved", tags: ["DP"],
-  },
-];
+interface Problem {
+  id: number;
+  title: string;
+  difficulty: string;
+  status: string;
+  tags: string[];
+}
 
 type StatusKey = "solved" | "attempted" | "unsolved";
 const statusIcon: Record<StatusKey, React.ReactNode> = {
@@ -62,14 +21,19 @@ const statusIcon: Record<StatusKey, React.ReactNode> = {
 };
 
 export default function ProblemsPage() {
-  const [selectedTopic,    setSelectedTopic]    = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState("apb");
-  const [search,           setSearch]           = useState("");
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [search, setSearch] = useState("");
+
+  // Fetch problems dynamically from the JSON file
+  useEffect(() => {
+    fetch("/data/problems.json")
+      .then((res) => res.json())
+      .then((data) => setProblems(data))
+      .catch((err) => console.error("Failed to fetch problems layout:", err));
+  }, []);
 
   const filtered = problems.filter((p) => {
-    const topicMatch = selectedTopic === "all";
-    const searchMatch = p.title.toLowerCase().includes(search.toLowerCase());
-    return topicMatch && searchMatch;
+    return p.title.toLowerCase().includes(search.toLowerCase());
   });
 
   return (
@@ -78,8 +42,6 @@ export default function ProblemsPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex gap-4">
-
-          {/* ── Main content ── */}
           <div className="flex-1 min-w-0">
             {/* Search bar */}
             <div className="relative mb-4">
@@ -95,23 +57,22 @@ export default function ProblemsPage() {
 
             {/* Problem list */}
             <div className="bg-white rounded-2xl border border-[#F5CBA7] shadow-sm overflow-hidden">
-              {/* Table header */}
-              <div className="grid grid-cols-[40px_1fr_120px_40px] gap-3 px-5 py-3 border-b border-[#F5CBA7] bg-[#FFF9F0]">
+              <div className="grid grid-cols-[1fr_120px_40px_40px] gap-3 px-5 py-3 border-b border-[#F5CBA7] bg-[#FFF9F0]">
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Title</div>
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Difficulty</div>
                 <div></div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Status</div>
               </div>
 
               <div className="divide-y divide-[#F5CBA7]/40">
                 {filtered.map((p) => (
                   <div
                     key={p.id}
-                    className="grid grid-cols-[40px_1fr_120px_40px] gap-3 px-5 py-3.5 items-center hover:bg-[#FFF9F0] transition-colors group"
+                    className="grid grid-cols-[1fr_120px_40px_40px] gap-3 px-5 py-3.5 items-center hover:bg-[#FFF9F0] transition-colors group"
                   >
-
-                    {/* Title */}
+                    {/* Title links to custom parameter */}
                     <div>
-                      <Link href="/coding">
+                      <Link href={`/coding?id=${p.id}`}>
                         <div className="text-sm font-medium text-gray-800 group-hover:text-brand-red transition-colors cursor-pointer">
                           {p.title}
                         </div>
@@ -128,17 +89,17 @@ export default function ProblemsPage() {
                       </Badge>
                     </div>
                     
-                    {/* Arrow */}
-                    <Link href="/coding">
+                    {/* Arrow button */}
+                    <Link href={`/coding?id=${p.id}`}>
                       <button className="p-1 text-gray-300 group-hover:text-brand-red transition-colors">
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </Link>
+
                     {/* Status icon */}
                     <div className="flex items-center justify-center">
                       {statusIcon[p.status as StatusKey]}
                     </div>
-
                   </div>
                 ))}
               </div>
