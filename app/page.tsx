@@ -1,6 +1,9 @@
 "use client";
+
 import Link from "next/link";
-import { Home, BookOpen, Users, Trophy, Code2, ChevronRight, Star, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
+// Added Instagram, Discord, Github, and ArrowUp icons
+import { Home, BookOpen, Users, Trophy, Code2, ChevronRight, Star, Zap, Instagram, Disc, Github, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BowlIllustration from "@/components/shared/BowlIllustration";
 import WaveSection from "@/components/shared/WaveSection";
@@ -44,9 +47,12 @@ const features = [
   },
 ];
 
-
-
 export default function LandingPage() {
+  // Smooth scroll handler for the "Back to Top" button layout behavior
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-brand-cream font-sans">
       {/* ── Navbar ── */}
@@ -57,20 +63,8 @@ export default function LandingPage() {
             <span className="font-display font-bold text-lg text-brand-red tracking-wide">BaMhee E-lab</span>
           </div>
 
-          {/*          <nav className="hidden md:flex items-center gap-6">
-            {["About", "Elab", "Problems"].map((item) => (
-              <a
-                key={item}
-                href="#"
-                className="text-sm text-gray-500 hover:text-brand-red transition-colors font-medium"
-              >
-                {item}
-              </a>
-            ))}
-          </nav> */}
-
           <div className="hidden md:flex items-center gap-20">
-            <Link href="/landing">
+            <Link href="/">
               <p className="text-sm text-gray-500 hover:text-brand-red transition-colors font-medium">About</p>
             </Link>
             <Link href="/problems">
@@ -126,85 +120,121 @@ export default function LandingPage() {
               </div>
             </div>
 
-          {/* Bowl illustration */}
-          <div className="hidden md:flex flex-1 items-center justify-center">
-            <div className="animate-float">
-              <BowlIllustration size={300} />
-            </div>
-          </div>
-        </div>
-
-        {/* Wave bottom */}
-        <WaveSection bgColor="#FFF9F0" fillColor="#F5CBA7" className="mt-4" />
-      </section>
-      </main>        
-      {/* ── Features ── */}
-      
-      {/*<section className="bg-white py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
-            <div className="text-xs font-bold tracking-widest uppercase text-brand-orange mb-3">
-              What we offer
-            </div>
-            <h2 className="font-display text-3xl font-bold text-gray-900">
-              Everything you need to master CS
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map(({ icon: Icon, title, desc, color }) => (
-              <div
-                key={title}
-                className="group bg-brand-cream rounded-2xl p-6 border border-[#F5CBA7] hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-white"
-                  style={{ backgroundColor: color }}
-                >
-                  <Icon className="w-6 h-6" />
-                </div>
-                <h3 className="font-display text-base font-bold mb-2" style={{ color }}>
-                  {title}
-                </h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-                
-                <div
-                  className="absolute -bottom-5 -right-5 w-16 h-16 rounded-full opacity-20 group-hover:opacity-30 transition-opacity"
-                  style={{ backgroundColor: color }}
-                />
+            {/* Bowl illustration */}
+            <div className="hidden md:flex flex-1 items-center justify-center">
+              <div className="animate-float">
+                <BowlIllustration size={300} />
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </section> */}
 
-      {/* ── CTA Banner ── */}
-      
-      {/*<section className="py-20 px-6 bg-gradient-to-r from-[#922B21] via-[#C0392B] to-[#E8441A] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 left-10 text-6xl">🏮</div>
-          <div className="absolute bottom-4 right-20 text-5xl">🥢</div>
-          <div className="absolute top-1/2 left-1/3 text-4xl">🍜</div>
-        </div>
-        <div className="max-w-2xl mx-auto text-center relative z-10">
-          <h2 className="font-display text-3xl font-bold text-white mb-4">
-            Ready to start your journey?
-          </h2>
-          <p className="text-white/75 text-base mb-8">
-            Join thousands of CS students experimenting and growing with BaMhee E-lab.
-          </p>
-          <Link href="/register">
-            <Button
-              className="bg-white text-brand-red hover:bg-brand-cream border-0 text-base px-8 py-3 h-auto shadow-xl"
-            >
-              Create Free Account →
-            </Button>
-          </Link>
-        </div>
-      </section>*/}
+          {/* Wave bottom */}
+          <WaveSection bgColor="#FFF9F0" fillColor="#F5CBA7" className="mt-4" />
+        </section>
+      </main>        
 
-      {/* ── Footer ── */}
-      <footer className="bg-[#C0392B] py-8 px-8"></footer>
+      {/* ── Refactored Footer Component ── */}
+      <footer className="bg-[#1D1313] text-white pt-16 pb-6 relative overflow-hidden">
+        {/* Background ambient geometric accents mimicking your reference layout design background */}
+        <div className="absolute inset-0 opacity-[0.02] pointer-events-none">
+          <div className="absolute right-0 bottom-0 w-[600px] h-[400px] border-l border-t border-white transform rotate-12 origin-bottom-right" />
+          <div className="absolute right-20 bottom-0 w-[400px] h-[300px] border-l border-t border-white transform rotate-12 origin-bottom-right" />
+        </div>
+
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-white/10 relative z-10">
+          
+          {/* Column 1: Brand Info Box (Span 5 columns) */}
+          <div className="md:col-span-5 flex flex-col justify-between space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🏮</span>
+                <span className="font-display font-bold text-lg tracking-wide text-white">
+                  จุดประสงค์
+                </span>
+              </div>
+              <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
+                เว็บไชต์นี้จัดทำขึ้นโดยนิสิตชุมนุมนิสิตภาควิชาคอมพิวเตอร์ โดยมีจุดมุ่งหมายเพื่อเตรียมความพร้อมให้คุณได้ฝึกเขียนโค้ด และได้ลงมือแก้ปัญหาจริงๆ
+              </p>
+              <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
+                ไม่ว่าคุณจะถนัดภาษา python c c++ java javascript หรือหากยังไม่มีพื้นฐานก็มาฝึกได้ เพราะที่นี้มีโจทย์มากมายหลายระดับความยาก
+              </p>
+              <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
+                BaMhee Elab ยินดีต้อนรับเหล่านักพัฒนาตัวน้อยที่มีไฟและพร้อมจะเติบโตไปด้วยกันเสมอ!
+              </p>
+            </div>
+
+
+            <div className="flex items-center gap-5">
+              {/* Combined Social Anchor Link targeting group hover */}
+              <a 
+                href="https://www.instagram.com/comsci40.ku/" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="group flex items-center gap-3 w-fit"
+              >
+                {/* The Icon: inherits group hover state */}
+                <Instagram className="w-6 h-6 text-white/70 group-hover:text-white transition-colors duration-200" />
+                
+                {/* The Text Label: inherits group hover state synced perfectly */}
+                <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors duration-200 tracking-wide">
+                  comsci40.ku
+                </span>
+              </a>
+            </div>
+
+            {/* Back to Top Interceptor */}
+            <div>
+              <button 
+                onClick={scrollToTop}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl text-xs uppercase tracking-wider transition-all duration-200 active:scale-95 cursor-pointer"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+                Back to Top
+              </button>
+            </div>
+          </div>
+
+          {/* Spacer layout separator (Span 1 column) */}
+          <div className="hidden md:block md:col-span-1" />
+
+          {/* Column 2: Site Map Link Structure (Span 3 columns) */}
+          <div className="md:col-span-3 space-y-4">
+            <h4 className="text-xs font-bold text-brand-orange uppercase tracking-widest">
+              Site Map
+            </h4>
+            <ul className="space-y-2.5 text-sm">
+              <li>
+                <Link href="/" className="text-gray-400 hover:text-white font-medium transition-colors hover:underline decoration-brand-orange underline-offset-4">
+                  Homepage
+                </Link>
+              </li>
+              <li>
+                <Link href="/login" className="text-gray-400 hover:text-white font-medium transition-colors hover:underline decoration-brand-orange underline-offset-4">
+                  Sign In Gateway
+                </Link>
+              </li>
+              <li>
+                <Link href="/profile" className="text-gray-400 hover:text-white font-medium transition-colors hover:underline decoration-brand-orange underline-offset-4">
+                  Student Profile
+                </Link>
+              </li>
+              <li>
+                <Link href="/problems" className="text-gray-400 hover:text-white font-medium transition-colors hover:underline decoration-brand-orange underline-offset-4">
+                  Problems Library
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+
+        </div>
+
+        {/* Bottom Absolute Copy strip row bar line */}
+        <div className="max-w-6xl mx-auto px-6 pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-gray-500 gap-2">
+          <p>Copyright © 2026, BaMhee E-lab. All Rights Reserved.</p>
+          <p className="opacity-70">จัดทำโดย ชุมนุมนิสิตภาควิชาคอมพิวเตอร์ มหาวิทยาลัยเกษตรศาสตร์บางเขน</p>
+        </div>
+      </footer>
     </div>
   );
 }
