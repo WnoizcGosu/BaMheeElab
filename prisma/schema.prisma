@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,34 +6,137 @@ datasource db {
   provider = "postgresql"
 }
 
-// ==========================================
-// Example Models for BaMheeElab (Online Judge)
-// ==========================================
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Language {
+  PYTHON
+  C
+  CPP
+}
+
+enum SubmissionStatus {
+  PENDING
+  JUDGING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT
+  MEMORY_LIMIT
+  RUNTIME_ERROR
+  COMPILE_ERROR
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  name       String
+  role       Role     @default(USER)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  problems            Problem[]
+  submissions         Submission[]
+  leaderboard_entries LeaderboardEntry[]
+}
 
 model Problem {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  category    String   @default("General") // "General", "Stat", etc.
-  difficulty  String   @default("Easy") // "Easy", "Medium", "Hard"
-  timeLimit   Int      @default(1000)   // ms
-  memoryLimit Int      @default(256)    // MB
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  testCases   TestCase[]
+  id           String   @id @default(uuid())
+  title        String
+  description  String   @db.Text
+  time_limit   Int
+  memory_limit Int
+  created_by   String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  creator             User               @relation(fields: [created_by], references: [id])
+  test_cases          TestCase[]
+  submissions         Submission[]
+  leaderboard_entries LeaderboardEntry[]
+
+  @@index([created_by])
 }
 
 model TestCase {
-  id            String   @id @default(uuid())
-  problemId     String
-  problem       Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  filename      String
-  inputUrl      String?
-  outputUrl     String?
-  inputContent  String?
-  outputContent String?
-  isPublic      Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid())
+  problem_id      String
+  filename        String
+  input_url       String?
+  output_url      String?
+  input_content   String?  @db.Text
+  output_content  String?  @db.Text
+  is_public       Boolean  @default(false)
+  order_index     Int      @default(0)
+  created_at      DateTime @default(now())
+
+  problem          Problem          @relation(fields: [problem_id], references: [id])
+  test_case_results TestCaseResult[]
+
+  @@index([problem_id, order_index])
+}
+
+model Submission {
+  id          String           @id @default(uuid())
+  user_id     String
+  problem_id  String
+  language    Language
+  source_code String           @db.Text
+  status      SubmissionStatus @default(PENDING)
+  score       Int              @default(0)
+  runtime     Int?
+  memory      Int?
+  result_url  String?
+  submitted_at DateTime        @default(now())
+  judged_at   DateTime?
+
+  user               User               @relation(fields: [user_id], references: [id])
+  problem            Problem            @relation(fields: [problem_id], references: [id])
+  test_case_results  TestCaseResult[]
+  leaderboard_entries LeaderboardEntry[]
+
+  @@index([user_id])
+  @@index([problem_id])
+  @@index([user_id, problem_id])
+  @@index([problem_id, score])
+  @@index([submitted_at])
+}
+
+model TestCaseResult {
+  id             String           @id @default(uuid())
+  submission_id  String
+  test_case_id   String
+  passed         Boolean
+  status         SubmissionStatus
+  runtime        Int?
+  memory         Int?
+  actual_output  String?          @db.Text
+  actual_url     String?
+  error_message  String?          @db.Text
+  judge0_token   String?
+
+  submission Submission @relation(fields: [submission_id], references: [id])
+  test_case  TestCase   @relation(fields: [test_case_id], references: [id])
+
+  @@unique([submission_id, test_case_id])
+  @@index([submission_id])
+}
+
+model LeaderboardEntry {
+  id                 String   @id @default(uuid())
+  user_id            String
+  problem_id         String
+  best_score         Int      @default(0)
+  best_runtime       Int?
+  best_memory        Int?
+  best_submission_id String?
+  updated_at         DateTime @updatedAt
+
+  user            User       @relation(fields: [user_id], references: [id])
+  problem         Problem    @relation(fields: [problem_id], references: [id])
+  best_submission Submission? @relation(fields: [best_submission_id], references: [id])
+
+  @@unique([user_id, problem_id])
+  @@index([problem_id, best_score])
 }
