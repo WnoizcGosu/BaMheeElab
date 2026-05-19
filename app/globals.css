@@ -64,12 +64,6 @@
   --radius-full: 9999px;
 }
 
-@theme inline {
-  --color-background: var(--bg-primary);
-  --color-foreground: var(--text-primary);
-  --font-sans: 'Inter', var(--font-geist-sans), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
-}
 
 * {
   box-sizing: border-box;

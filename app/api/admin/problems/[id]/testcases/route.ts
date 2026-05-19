@@ -17,6 +17,20 @@ export async function POST(
         { status: 400 }
       );
     }
+    
+    // Prevent Payload DoS & Ensure structural integrity
+    if (testCases.length > 100) {
+      return NextResponse.json({ error: "Too many test cases provided." }, { status: 413 });
+    }
+    
+    for (const tc of testCases) {
+      if (!tc.id || typeof tc.inputContent !== 'string' || typeof tc.outputContent !== 'string') {
+        return NextResponse.json({ error: "Invalid test case format." }, { status: 400 });
+      }
+      if (tc.inputContent.length > 50000 || tc.outputContent.length > 50000) {
+         return NextResponse.json({ error: "Test case payload size exceeds limit." }, { status: 413 });
+      }
+    }
 
     const updated = await addTestCasesToProblem(id, testCases);
 

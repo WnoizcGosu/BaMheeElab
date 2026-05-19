@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { TestCase } from "@/types/problem";
-import { TestCasePair, buildTestCasesFromPairs } from "@/lib/testcases";
-import TestCaseUploader from "./test-case-uploader";
+import { v4 as uuidv4 } from "uuid";
 
 interface AddTestCasePanelProps {
   problemId: string;
@@ -22,13 +21,37 @@ export default function AddTestCasePanel({
 }: AddTestCasePanelProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(variant === "inline");
-  const [pairs, setPairs] = useState<TestCasePair[]>([]);
+  const [testCases, setTestCases] = useState<{ id: string; inputContent: string; outputContent: string }[]>(
+    existingTestCases.length > 0 
+      ? existingTestCases.map(tc => ({
+          id: tc.id,
+          inputContent: tc.inputContent || "",
+          outputContent: tc.outputContent || ""
+        }))
+      : [{ id: uuidv4(), inputContent: "", outputContent: "" }]
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const handleAddTestCaseField = () => {
+    setTestCases([...testCases, { id: uuidv4(), inputContent: "", outputContent: "" }]);
+  };
+
+  const handleRemoveTestCaseField = (id: string) => {
+    if (testCases.length > 1) {
+      setTestCases(testCases.filter(tc => tc.id !== id));
+    }
+  };
+
+  const handleUpdateTestCaseField = (id: string, field: "inputContent" | "outputContent", value: string) => {
+    setTestCases(testCases.map(tc => tc.id === id ? { ...tc, [field]: value } : tc));
+  };
+
   const handleAdd = async () => {
-    if (pairs.length === 0) {
-      setError("Upload at least one input/output file pair.");
+    // Validate inputs to prevent basic injection/empty string issues
+    const validTestCases = testCases.filter(tc => tc.inputContent.trim() !== "" && tc.outputContent.trim() !== "");
+    if (validTestCases.length === 0) {
+      setError("Provide valid Input and Output pairs. Empty pairs are not allowed.");
       return;
     }
 
@@ -36,20 +59,29 @@ export default function AddTestCasePanel({
     setError(null);
 
     try {
-      const newCases = await buildTestCasesFromPairs(pairs);
+      const newCases: TestCase[] = validTestCases.map((tc, index) => {
+        const existing = existingTestCases.find(e => e.id === tc.id);
+        return {
+          id: tc.id,
+          filename: existing?.filename || `testcase_${Date.now()}_${index}.txt`,
+          inputContent: tc.inputContent,
+          outputContent: tc.outputContent,
+          isPublic: existing?.isPublic || false
+        };
+      });
 
-      const res = await fetch(`/api/admin/problems/${problemId}/testcases`, {
-        method: "POST",
+      // Update the entire problem's test cases list using the PUT endpoint
+      const res = await fetch(`/api/admin/problems/${problemId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ testCases: newCases }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to add test cases");
+        throw new Error(data.error || "Failed to update test cases");
       }
 
-      setPairs([]);
       setExpanded(variant === "inline");
       onSuccess?.();
       router.refresh();
@@ -67,7 +99,7 @@ export default function AddTestCasePanel({
         onClick={() => setExpanded(true)}
         className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
       >
-        + Add Test Case
+        + Manage Test Cases
       </button>
     );
   }
@@ -88,12 +120,12 @@ export default function AddTestCasePanel({
     >
       {variant === "modal" && (
         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Add Test Cases</h4>
+          <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Manage Test Cases (Direct Input)</h4>
           <button
             type="button"
             onClick={() => {
               setExpanded(false);
-              setPairs([]);
+              setTestCases([{ id: uuidv4(), inputContent: "", outputContent: "" }]);
               setError(null);
             }}
             style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", background: "none", border: "none", cursor: "pointer" }}
@@ -103,13 +135,55 @@ export default function AddTestCasePanel({
         </div>
       )}
 
-      {existingTestCases.length > 0 && variant === "inline" && (
-        <p style={{ fontSize: 13, color: "var(--text-muted, #6b7280)", marginBottom: 12 }}>
-          {existingTestCases.length} existing test case(s). New uploads will be appended.
-        </p>
-      )}
 
-      <TestCaseUploader pairs={pairs} onPairsChange={setPairs} compact />
+
+      <div className="flex flex-col gap-4">
+        {testCases.map((tc, idx) => (
+          <div key={tc.id} className="p-4 border border-gray-200 rounded-md bg-gray-50 relative">
+             <div className="flex justify-between items-center mb-2">
+                <span className="font-semibold text-sm">Test Case #{idx + 1}</span>
+                {testCases.length > 1 && (
+                  <button 
+                    onClick={() => handleRemoveTestCaseField(tc.id)} 
+                    className="text-red-500 hover:text-red-700"
+                    title="Remove Test Case"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+               <div>
+                 <label className="block text-xs font-semibold text-gray-600 mb-1">Input Data</label>
+                 <textarea 
+                   className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                   rows={4}
+                   value={tc.inputContent}
+                   onChange={(e) => handleUpdateTestCaseField(tc.id, "inputContent", e.target.value)}
+                   placeholder="Enter input string..."
+                 />
+               </div>
+               <div>
+                 <label className="block text-xs font-semibold text-gray-600 mb-1">Expected Output</label>
+                 <textarea 
+                   className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                   rows={4}
+                   value={tc.outputContent}
+                   onChange={(e) => handleUpdateTestCaseField(tc.id, "outputContent", e.target.value)}
+                   placeholder="Enter expected output..."
+                 />
+               </div>
+             </div>
+          </div>
+        ))}
+        
+        <button 
+           onClick={handleAddTestCaseField}
+           className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 self-start"
+        >
+          <Plus size={16} /> Add Another Test Case Field
+        </button>
+      </div>
 
       {error && (
         <p style={{ fontSize: 13, color: "var(--accent-red, #e74c3c)", marginTop: 10 }}>{error}</p>
@@ -121,7 +195,7 @@ export default function AddTestCasePanel({
             type="button"
             onClick={() => {
               setExpanded(false);
-              setPairs([]);
+              setTestCases([{ id: uuidv4(), inputContent: "", outputContent: "" }]);
               setError(null);
             }}
             style={{
@@ -139,7 +213,7 @@ export default function AddTestCasePanel({
         <button
           type="button"
           onClick={handleAdd}
-          disabled={isSubmitting || pairs.length === 0}
+          disabled={isSubmitting}
           className="flex items-center gap-2"
           style={{
             padding: "8px 16px",
@@ -149,16 +223,16 @@ export default function AddTestCasePanel({
             background: isSubmitting ? "#93c5fd" : "#2563eb",
             border: "none",
             borderRadius: 6,
-            cursor: isSubmitting || pairs.length === 0 ? "not-allowed" : "pointer",
+            cursor: isSubmitting ? "not-allowed" : "pointer",
           }}
         >
           {isSubmitting ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              Uploading...
+              Saving...
             </>
           ) : (
-            "Add Test Case(s)"
+            "Save Test Cases"
           )}
         </button>
       </div>

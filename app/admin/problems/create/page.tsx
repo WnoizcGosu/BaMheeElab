@@ -3,14 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { TestCasePair, buildTestCasesFromPairs } from "@/lib/testcases";
-import TestCaseUploader from "@/components/admin/test-case-uploader";
+
 
 export default function CreateProblemPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [pairs, setPairs] = useState<TestCasePair[]>([]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -24,18 +21,13 @@ export default function CreateProblemPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setUploadingFiles(true);
-
     try {
-      const uploadedCases = pairs.length > 0 ? await buildTestCasesFromPairs(pairs) : [];
-      setUploadingFiles(false);
-
       const res = await fetch("/api/admin/problems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          testCases: uploadedCases,
+          testCases: [],
         }),
       });
 
@@ -49,7 +41,6 @@ export default function CreateProblemPage() {
       console.error(error);
     } finally {
       setIsSubmitting(false);
-      setUploadingFiles(false);
     }
   };
 
@@ -177,12 +168,6 @@ export default function CreateProblemPage() {
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 16px" }}>
-              Test Cases
-            </h3>
-            <TestCaseUploader pairs={pairs} onPairsChange={setPairs} />
-          </div>
 
           <div
             className="flex justify-end gap-3"
@@ -223,7 +208,7 @@ export default function CreateProblemPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} />
-                  {uploadingFiles ? "Uploading Files..." : "Saving..."}
+                  {isSubmitting ? "Saving..." : "Saving..."}
                 </>
               ) : (
                 "Create Problem"
