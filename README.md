@@ -269,6 +269,10 @@ NEXTAUTH_URL="http://localhost:3000"
 
 # Judge0
 JUDGE0_API_URL="http://localhost:2358"
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_client_id_here
+GOOGLE_CLIENT_SECRET=your_client_secret_here
 ```
 
 ---
