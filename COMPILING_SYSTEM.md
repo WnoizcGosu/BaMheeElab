@@ -388,3 +388,158 @@ JUDGE_WORKER_CONCURRENCY=4
 ```bash
 docker exec bam-redis redis-cli FLUSHALL
 ```
+
+---
+
+## 12. Flow รายละเอียด — กด Submit → ผลโชว์กลับที่หน้าจอ
+
+trace ทีละสเตปว่าไฟล์ไหนเรียกฟังก์ชันอะไรจากไฟล์ไหน
+
+```
+[Browser]  app/test/page.tsx
+   │  fetch POST /api/submissions
+   ▼
+[Next.js API]  app/api/submissions/route.ts
+   │  createSubmission() → Redis (mock DB)
+   │  judgeQueue.add()   → BullMQ
+   ▼
+[BullMQ queue "judge"]  lib/queue.ts  ─── ใช้ Redis (lib/redis.ts)
+   ▼
+[Worker process]  worker/judge.worker.ts
+   │  setSubmissionStatus("JUDGING")
+   │  emitSubmissionUpdate(JUDGING)  ─┐
+   │  getProblemWithTestCases()       │
+   │  ─── per testcase (parallel) ─── │
+   │   submitToJudge0() ─────► [Judge0 / mock-judge0]
+   │   waitForJudge0()                │
+   │   mapJudge0Status()              │
+   │   maybeOffload() ──► [MinIO]     │
+   │  finalizeSubmission()            │
+   │  upsertLeaderboardEntry()        │
+   │  redis.zadd() (ZSET)             │
+   │  emitSubmissionUpdate(final) ────┘
+   ▼
+[Socket.IO server]  lib/socket.ts (รัน standalone :3001)
+   │  ─── Redis adapter รับ event จาก worker
+   │  emit "submission:update" → room=userId
+   ▼
+[Browser]  app/test/page.tsx (รับ event)
+   │  fetch GET /api/submissions/:id  → app/api/submissions/[id]/route.ts
+   │  fetch GET /api/leaderboard      → app/api/leaderboard/route.ts
+```
+
+### 12.1 กดปุ่ม Submit (Browser)
+
+ไฟล์: `app/test/page.tsx`
+
+- ปุ่ม Submit (บรรทัด **232**) เรียก `onSubmit()` (บรรทัด **144**)
+- `onSubmit()` ส่ง `fetch POST /api/submissions` พร้อม body `{ problemId, language, sourceCode }` (type `SubmitRequest` จาก `types/submission.ts`)
+- ตอน mount มี `useEffect` (บรรทัด **81**) เชื่อม Socket.IO ไป `:3001` แล้ว `s.emit("join", USER_ID)` เพื่อเข้า room
+
+### 12.2 รับ submit + เข้า queue
+
+ไฟล์: `app/api/submissions/route.ts`
+
+1. validate body (`problemId`, `sourceCode`, `language ∈ {PYTHON,C,CPP}`)
+2. `randomUUID()` สร้าง `submissionId`
+3. `createSubmission(...)` ← `lib/db/judge-store.ts:101` — insert record `status:"PENDING"` ลง Redis key `mock:submission:{id}`
+4. `judgeQueue.add("judge", payload, ...)` — `judgeQueue` มาจาก `lib/queue.ts:12` (`new Queue("judge", { connection: redis })`)
+5. ตอบ `201 { submissionId, status:"PENDING" }` กลับ browser ทันที (ไม่รอ judge)
+
+> ทำไมต้อง queue: judge ใช้เวลาหลายวินาที ห้าม block HTTP request
+
+### 12.3 Worker process รับ job
+
+ไฟล์: `worker/judge.worker.ts` (รันแยก process: `npm run worker`)
+
+`new Worker(...)` (บรรทัด **228**) ใช้ `createBlockingConnection()` จาก `lib/redis.ts:17` (BullMQ ต้อง connection แยกเพราะ BLOCK)
+
+`processJob(job)` (บรรทัด **140**) ทำตาม 11 ขั้นตอนใน CLAUDE.md:
+
+**(1+2) → JUDGING**
+- `setSubmissionStatus(submissionId, "JUDGING")` ← `judge-store.ts:128`
+- `emitSubmissionUpdate(userId, { status:"JUDGING", score:0, ... })` ← `lib/socket.ts:88`
+
+**(3) โหลด problem + testcases**
+- `getProblemWithTestCases(problemId)` ← `judge-store.ts:93`
+
+**(4+5) ส่งทุก testcase ไป Judge0 พร้อมกัน**
+- `Promise.all(testCases.map(judgeOneTestCase))` (บรรทัด **161**)
+- `judgeOneTestCase()` (บรรทัด **89**) แต่ละเคสเรียก:
+  - `submitToJudge0(...)` ← `lib/judge0.ts:40` (`LANGUAGE_ID` mapping อยู่ที่ `judge0.ts:9` — PYTHON=71, C=50, CPP=54)
+  - `waitForJudge0(token)` ← `judge0.ts:67` — poll ทุก 500ms จน `status.id > 2`
+  - `mapJudge0Status(id, description)` ← `judge0.ts:93`
+  - `parseRuntimeSec()` แปลง `"0.142"` วินาที → 142 ms
+  - `maybeOffload()` (บรรทัด **74**) → ถ้า stdout > 10KB
+    - `shouldOffload()` ← `lib/minio.ts:93`
+    - `uploadLargeOutput()` ← `lib/minio.ts:73` (ใช้ `@aws-sdk/client-s3` ยิงเข้า MinIO)
+  - return `ResultRow` (`actualOutput=null` ถ้า `isHidden=true`)
+
+**(6+7) รวมผล**
+- `aggregateStatus(statuses)` (บรรทัด **59**) — ทุกเคส ACCEPTED → ACCEPTED; ไม่งั้นเลือกตามลำดับ COMPILE_ERROR > MEMORY_LIMIT > TIME_LIMIT > RUNTIME_ERROR > WRONG_ANSWER
+- `score = (passed/total) × 100`
+- runtime/memory = `Math.max(...)` (worst case)
+
+**(8+9) persist**
+- `finalizeSubmission(...)` ← `judge-store.ts:138`
+
+**(10) leaderboard**
+- `upsertLeaderboardEntry(...)` ← `judge-store.ts:154` (เก็บ best score per user-problem)
+- `redis.zadd(LEADERBOARD_KEY(problemId), "GT", score, userId)` — `LEADERBOARD_KEY` ← `lib/redis.ts:21`; flag `GT` อัปเฉพาะตอนคะแนนใหม่สูงกว่าเดิม
+
+**(11) emit final**
+- `emitSubmissionUpdate(userId, { status, score, runtime, memory })` อีกรอบ
+
+### 12.4 Socket.IO bridge ข้าม process
+
+ไฟล์: `lib/socket.ts`
+
+worker กับ socket server เป็นคนละ process → ใช้ Redis pub/sub bridge:
+
+- **Socket server** (`npm run socket` → `if (require.main === module) getIO()`):
+  - `buildIO()` (บรรทัด **40**) สร้าง Socket.IO + `createAdapter(redis, subClient)` จาก `@socket.io/redis-adapter`
+  - listen `:3001`, รับ `socket.on("join", userId)` → `socket.join(userId)`
+- **Worker** เรียก `emitSubmissionUpdate(...)` (บรรทัด **88**):
+  - ภายในใช้ `Emitter` จาก `@socket.io/redis-emitter` — **ไม่เปิด HTTP port** แค่ publish เข้า Redis channel
+  - socket server รับผ่าน adapter → forward เข้า room ของ userId → browser ได้ event
+
+### 12.5 Browser รับ event → fetch ผลเต็ม
+
+ไฟล์: `app/test/page.tsx` (บรรทัด **97**)
+
+- `s.on("submission:update", onUpdate)` ตั้งฟังไว้
+- event มา ถ้า status ไม่ใช่ PENDING/JUDGING → fetch 2 endpoint:
+  - `GET /api/submissions/:id` → `app/api/submissions/[id]/route.ts` → `getSubmission(id)` ← `judge-store.ts:121`
+  - `GET /api/leaderboard?problemId=...` → `app/api/leaderboard/route.ts` → `redis.zrevrange(LEADERBOARD_KEY(problemId), 0, limit-1, "WITHSCORES")`
+
+### 12.6 Judge0 callback (optional)
+
+ไฟล์: `app/api/judge/callback/route.ts`
+
+- webhook ที่ Judge0 ยิงกลับเมื่อ judge เสร็จ
+- ตอนนี้ worker ใช้ polling เป็นหลัก → callback แค่ verify secret (`X-Callback-Secret` header หรือ `?secret=` query) แล้ว log + ack
+- มีไว้รองรับการเปลี่ยนเป็น push-mode โดยไม่ต้องแก้ฝั่ง Judge0
+
+### 12.7 ตาราง file ↔ function dependency
+
+| ขั้น | ไฟล์ | ฟังก์ชันที่เรียก | มาจาก |
+|------|------|------------------|-------|
+| ปุ่ม Submit | `app/test/page.tsx` | `onSubmit()` | — |
+| Create submission | `app/api/submissions/route.ts` | `createSubmission`, `judgeQueue.add` | `lib/db/judge-store.ts`, `lib/queue.ts` |
+| Queue | `lib/queue.ts` | `new Queue` | `lib/redis.ts` |
+| Worker entry | `worker/judge.worker.ts` | `processJob` | (ดูข้างล่าง) |
+| → JUDGING | `worker/judge.worker.ts` | `setSubmissionStatus`, `emitSubmissionUpdate` | `judge-store.ts`, `socket.ts` |
+| → Judge0 | `worker/judge.worker.ts` | `submitToJudge0`, `waitForJudge0`, `mapJudge0Status`, `LANGUAGE_ID` | `lib/judge0.ts` |
+| → MinIO | `worker/judge.worker.ts` | `shouldOffload`, `uploadLargeOutput` | `lib/minio.ts` |
+| → Finalize | `worker/judge.worker.ts` | `finalizeSubmission`, `upsertLeaderboardEntry`, `redis.zadd` | `judge-store.ts`, `redis.ts` |
+| → Final emit | `worker/judge.worker.ts` | `emitSubmissionUpdate` | `lib/socket.ts` |
+| Socket bridge | `lib/socket.ts` | `Emitter`, `createAdapter` | `@socket.io/redis-*` |
+| GET submission | `app/api/submissions/[id]/route.ts` | `getSubmission` | `lib/db/judge-store.ts` |
+| GET leaderboard | `app/api/leaderboard/route.ts` | `redis.zrevrange` | `lib/redis.ts` |
+| Judge0 webhook | `app/api/judge/callback/route.ts` | verify secret + ack | `lib/judge0.ts` |
+
+### 12.8 จุดออกแบบที่ตั้งใจ
+
+1. **API ไม่รอ judge** — แค่ enqueue แล้ว return ทันที, user รับผลผ่าน socket → ทน load
+2. **Worker / Socket server แยก process แต่คุยกันผ่าน Redis** — `redis-adapter` + `redis-emitter` ทำให้ worker emit event ได้โดยไม่ต้องเปิด HTTP เอง
+3. **MinIO offload เฉพาะ output > 10KB** — ไม่งั้น inline ใน mock store; URL เก็บใน `Submission.resultUrl`
