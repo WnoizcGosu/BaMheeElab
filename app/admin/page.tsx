@@ -1,13 +1,22 @@
 import Link from "next/link";
-import { getProblems } from "@/lib/db/mock-problems";
+import prisma from "@/lib/db/prisma";
 import { FileCode2, BarChart3, Plus } from "lucide-react";
 
 export default async function AdminDashboard() {
-  const problems = await getProblems();
+  const dbProblems = await prisma.problem.findMany();
+  
+  // Parse category out of description (since we pack it in our workaround)
+  const problems = dbProblems.map(p => {
+    let extractedCategory = "Programming";
+    const catMatch = p.description.match(/\*\*Category:\*\*\s*(.*?)\s*\|/);
+    if (catMatch) extractedCategory = catMatch[1].trim();
+    return { ...p, category: extractedCategory };
+  });
+
   const programmingCount = problems.filter(
     (p) => p.category === "Programming" || p.category === "General" || !p.category
   ).length;
-  const statCount = problems.filter((p) => p.category === "Stat").length;
+  const statCount = problems.filter((p) => p.category === "Stat" || p.category === "Statistical Programming").length;
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>

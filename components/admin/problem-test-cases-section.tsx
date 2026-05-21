@@ -3,11 +3,7 @@
 import { TestCase } from "@/types/problem";
 import AddTestCasePanel from "./add-test-case-panel";
 
-function displayContent(content?: string, url?: string, fallback?: string): string {
-  if (content) return content;
-  if (url) return `[File: ${fallback || url}]`;
-  return "No data";
-}
+
 
 export default function ProblemTestCasesSection({
   problemId,

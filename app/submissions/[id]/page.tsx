@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSubmissionById } from "@/lib/db/mock-submissions";
-import { getProblemById } from "@/lib/db/mock-problems";
+import prisma from "@/lib/db/prisma";
 import { CheckCircle2, XCircle, Clock, MemoryStick as Memory, Code2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -10,13 +9,47 @@ export default async function SubmissionResultPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const submission = await getSubmissionById(id);
+  const dbSub = await prisma.submission.findUnique({
+    where: { id },
+    include: {
+      problem: true,
+      test_case_results: {
+        include: {
+          test_case: true
+        }
+      }
+    }
+  });
 
-  if (!submission) {
+  if (!dbSub) {
     notFound();
   }
 
-  const problem = await getProblemById(submission.problemId);
+  const problem = dbSub.problem;
+  
+  const submission = {
+    problemId: dbSub.problem_id,
+    language: dbSub.language,
+    status: dbSub.status === 'ACCEPTED' ? 'Passed' : 
+            dbSub.status === 'WRONG_ANSWER' ? 'Failed' : 
+            dbSub.status === 'TIME_LIMIT' ? 'Time Limit Exceeded' :
+            dbSub.status === 'RUNTIME_ERROR' ? 'Runtime Error' :
+            dbSub.status === 'COMPILE_ERROR' ? 'Compilation Error' : 'Pending',
+    createdAt: dbSub.submitted_at,
+    executionTime: dbSub.runtime || 0,
+    memoryUsed: dbSub.memory || 0,
+    code: dbSub.source_code,
+    testCaseResults: dbSub.test_case_results.map(tc => ({
+      testCaseId: tc.test_case_id,
+      status: tc.passed ? 'Passed' : 'Failed',
+      executionTime: tc.runtime || 0,
+      memoryUsed: tc.memory || 0,
+      input: tc.test_case.input_content || `[File at ${tc.test_case.input_url}]`,
+      expectedOutput: tc.test_case.output_content || `[File at ${tc.test_case.output_url}]`,
+      actualOutput: tc.actual_output || ""
+    }))
+  };
+
   const isPassed = submission.status === "Passed";
   const passedCount = submission.testCaseResults.filter((tc) => tc.status === "Passed").length;
 

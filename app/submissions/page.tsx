@@ -1,9 +1,32 @@
 import Link from "next/link";
-import { getSubmissions } from "@/lib/db/mock-submissions";
+import prisma from "@/lib/db/prisma";
 import { CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 
 export default async function SubmissionsIndexPage() {
-  const submissions = await getSubmissions();
+  const dbSubmissions = await prisma.submission.findMany({
+    include: {
+      test_case_results: true,
+      problem: true,
+    },
+    orderBy: { submitted_at: 'desc' }
+  });
+
+  const submissions = dbSubmissions.map(sub => ({
+    id: sub.id,
+    problemId: sub.problem_id,
+    problemTitle: sub.problem.title,
+    language: sub.language,
+    status: sub.status === 'ACCEPTED' ? 'Passed' : 
+            sub.status === 'WRONG_ANSWER' ? 'Failed' : 
+            sub.status === 'TIME_LIMIT' ? 'Time Limit Exceeded' :
+            sub.status === 'RUNTIME_ERROR' ? 'Runtime Error' :
+            sub.status === 'COMPILE_ERROR' ? 'Compilation Error' : 'Pending',
+    executionTime: sub.runtime || 0,
+    memoryUsed: sub.memory || 0,
+    testCaseResults: sub.test_case_results.map(tc => ({
+      status: tc.passed ? 'Passed' : 'Failed'
+    }))
+  }));
 
   return (
     <div
