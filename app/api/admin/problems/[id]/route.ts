@@ -92,3 +92,60 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    
+    // Ensure the problem exists
+    const existingProblem = await prisma.problem.findUnique({ where: { id } });
+    if (!existingProblem) {
+      return NextResponse.json({ error: "Problem not found." }, { status: 404 });
+    }
+
+    // Delete in order to satisfy foreign key constraints:
+    // 1. TestCaseResult
+    // 2. LeaderboardEntry
+    // 3. Submission
+    // 4. TestCase
+    // 5. Problem
+    
+    // First find all submissions for this problem to delete their test case results
+    const submissions = await prisma.submission.findMany({
+      where: { problem_id: id },
+      select: { id: true }
+    });
+    
+    const submissionIds = submissions.map(s => s.id);
+    
+    if (submissionIds.length > 0) {
+      await prisma.testCaseResult.deleteMany({
+        where: { submission_id: { in: submissionIds } }
+      });
+    }
+
+    await prisma.leaderboardEntry.deleteMany({
+      where: { problem_id: id }
+    });
+
+    await prisma.submission.deleteMany({
+      where: { problem_id: id }
+    });
+
+    await prisma.testCase.deleteMany({
+      where: { problem_id: id }
+    });
+
+    await prisma.problem.delete({
+      where: { id }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting problem:", error);
+    return NextResponse.json(
+      { error: "Failed to delete problem." },
+      { status: 500 }
+    );
+  }
+}

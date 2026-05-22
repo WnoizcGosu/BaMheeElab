@@ -4,6 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { normalizeDifficulty, formatDifficultyLabel } from "@/lib/testcases";
 import { ArrowLeft, Clock, MemoryStick as Memory, FileText } from "lucide-react";
 import ProblemTestCasesSection from "@/components/admin/problem-test-cases-section";
+import DeleteProblemButton from "./delete-button";
 
 export default async function ProblemDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -74,12 +75,15 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
                 </span>
               </div>
             </div>
-            <Link
-              href={`/admin/problems/${problem.id}/edit`}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              Edit Problem
-            </Link>
+            <div className="flex gap-3">
+              <DeleteProblemButton problemId={problem.id} />
+              <Link
+                href={`/admin/problems/${problem.id}/edit`}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+              >
+                Edit Problem
+              </Link>
+            </div>
           </div>
 
           <div className="flex gap-6 mt-6">
