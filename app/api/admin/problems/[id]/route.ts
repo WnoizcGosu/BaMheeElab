@@ -13,6 +13,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Problem not found." }, { status: 404 });
     }
 
+    // Update problem fields if provided
+    if (data.title || data.description || data.timeLimit || data.memoryLimit || data.category || data.difficulty) {
+      await prisma.problem.update({
+        where: { id },
+        data: {
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          difficulty: data.difficulty,
+          time_limit: data.timeLimit ? Number(data.timeLimit) : undefined,
+          memory_limit: data.memoryLimit ? Number(data.memoryLimit) : undefined,
+        }
+      });
+    }
+
     if (data.testCases) {
       // First, delete existing test cases for simplicity (or update them)
       await prisma.testCase.deleteMany({

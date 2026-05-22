@@ -45,6 +45,8 @@ model Problem {
   id           String   @id @default(uuid())
   title        String
   description  String   @db.Text
+  category     String   @default("Programming")
+  difficulty   String   @default("Easy")
   time_limit   Int
   memory_limit Int
   created_by   String

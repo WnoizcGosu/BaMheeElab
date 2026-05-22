@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 
 export default function CreateProblemPage() {
   const router = useRouter();
@@ -18,16 +18,35 @@ export default function CreateProblemPage() {
     memoryLimit: 256,
   });
 
+  const [testCases, setTestCases] = useState<{ id: string; inputContent: string; outputContent: string; isPublic: boolean }[]>([
+    { id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }
+  ]);
+
+  const handleAddTestCaseField = () => {
+    setTestCases([...testCases, { id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }]);
+  };
+
+  const handleRemoveTestCaseField = (id: string) => {
+    if (testCases.length > 1) {
+      setTestCases(testCases.filter(tc => tc.id !== id));
+    }
+  };
+
+  const handleUpdateTestCaseField = (id: string, field: "inputContent" | "outputContent" | "isPublic", value: string | boolean) => {
+    setTestCases(testCases.map(tc => tc.id === id ? { ...tc, [field]: value } : tc));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const validTestCases = testCases.filter(tc => tc.inputContent.trim() !== "" && tc.outputContent.trim() !== "");
       const res = await fetch("/api/admin/problems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          testCases: [],
+          testCases: validTestCases,
         }),
       });
 
@@ -168,6 +187,72 @@ export default function CreateProblemPage() {
             </div>
           </div>
 
+          <div style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
+              Test Cases
+            </h3>
+            
+            <div className="flex flex-col gap-4">
+              {testCases.map((tc, idx) => (
+                <div key={tc.id} className="p-4 border border-gray-200 rounded-md bg-gray-50 relative">
+                  <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-4">
+                        <span className="font-semibold text-sm">Test Case #{idx + 1}</span>
+                        <label className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={tc.isPublic}
+                            onChange={(e) => handleUpdateTestCaseField(tc.id, "isPublic", e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-gray-600 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
+                        </label>
+                      </div>
+                      {testCases.length > 1 && (
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveTestCaseField(tc.id)} 
+                          className="text-red-500 hover:text-red-700"
+                          title="Remove Test Case"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Input Data</label>
+                      <textarea 
+                        className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        rows={4}
+                        value={tc.inputContent}
+                        onChange={(e) => handleUpdateTestCaseField(tc.id, "inputContent", e.target.value)}
+                        placeholder="Enter input string..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Expected Output</label>
+                      <textarea 
+                        className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        rows={4}
+                        value={tc.outputContent}
+                        onChange={(e) => handleUpdateTestCaseField(tc.id, "outputContent", e.target.value)}
+                        placeholder="Enter expected output..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <button 
+                type="button"
+                onClick={handleAddTestCaseField}
+                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 self-start"
+              >
+                <Plus size={16} /> Add Another Test Case Field
+              </button>
+            </div>
+          </div>
 
           <div
             className="flex justify-end gap-3"

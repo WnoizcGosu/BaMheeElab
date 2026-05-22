@@ -10,24 +10,14 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
     orderBy: { created_at: 'desc' }
   });
 
-  // Since category and difficulty are packed in the description in our workaround,
-  // we can parse them for display. (e.g. "**Category:** Programming | **Difficulty:** Easy\n\n...")
+  // Use native category and difficulty from the database
   let problems = dbProblems.map((p) => {
-    let extractedCategory = "Programming";
-    let extractedDifficulty = "Easy";
-    
-    const catMatch = p.description.match(/\*\*Category:\*\*\s*(.*?)\s*\|/);
-    if (catMatch) extractedCategory = catMatch[1].trim();
-
-    const diffMatch = p.description.match(/\*\*Difficulty:\*\*\s*(.*?)\n/);
-    if (diffMatch) extractedDifficulty = diffMatch[1].trim();
-
     return {
       id: p.id,
       title: p.title,
       description: p.description,
-      category: extractedCategory,
-      difficulty: extractedDifficulty as "Easy" | "Medium" | "Hard" | "God",
+      category: p.category,
+      difficulty: p.difficulty as "Easy" | "Medium" | "Hard" | "God",
       timeLimit: p.time_limit,
       memoryLimit: p.memory_limit,
       createdAt: p.created_at,

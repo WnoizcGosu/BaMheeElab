@@ -5,13 +5,8 @@ import { FileCode2, BarChart3, Plus } from "lucide-react";
 export default async function AdminDashboard() {
   const dbProblems = await prisma.problem.findMany();
   
-  // Parse category out of description (since we pack it in our workaround)
-  const problems = dbProblems.map(p => {
-    let extractedCategory = "Programming";
-    const catMatch = p.description.match(/\*\*Category:\*\*\s*(.*?)\s*\|/);
-    if (catMatch) extractedCategory = catMatch[1].trim();
-    return { ...p, category: extractedCategory };
-  });
+  // Use native category from database
+  const problems = dbProblems;
 
   const programmingCount = problems.filter(
     (p) => p.category === "Programming" || p.category === "General" || !p.category

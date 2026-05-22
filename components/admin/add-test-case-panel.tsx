@@ -21,20 +21,21 @@ export default function AddTestCasePanel({
 }: AddTestCasePanelProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(variant === "inline");
-  const [testCases, setTestCases] = useState<{ id: string; inputContent: string; outputContent: string }[]>(
+  const [testCases, setTestCases] = useState<{ id: string; inputContent: string; outputContent: string; isPublic: boolean }[]>(
     existingTestCases.length > 0 
       ? existingTestCases.map(tc => ({
           id: tc.id,
           inputContent: tc.inputContent || "",
-          outputContent: tc.outputContent || ""
+          outputContent: tc.outputContent || "",
+          isPublic: tc.isPublic || false
         }))
-      : [{ id: uuidv4(), inputContent: "", outputContent: "" }]
+      : [{ id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }]
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleAddTestCaseField = () => {
-    setTestCases([...testCases, { id: uuidv4(), inputContent: "", outputContent: "" }]);
+    setTestCases([...testCases, { id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }]);
   };
 
   const handleRemoveTestCaseField = (id: string) => {
@@ -43,7 +44,7 @@ export default function AddTestCasePanel({
     }
   };
 
-  const handleUpdateTestCaseField = (id: string, field: "inputContent" | "outputContent", value: string) => {
+  const handleUpdateTestCaseField = (id: string, field: "inputContent" | "outputContent" | "isPublic", value: string | boolean) => {
     setTestCases(testCases.map(tc => tc.id === id ? { ...tc, [field]: value } : tc));
   };
 
@@ -66,7 +67,7 @@ export default function AddTestCasePanel({
           filename: existing?.filename || `testcase_${Date.now()}_${index}.txt`,
           inputContent: tc.inputContent,
           outputContent: tc.outputContent,
-          isPublic: existing?.isPublic || false
+          isPublic: tc.isPublic
         };
       });
 
@@ -125,7 +126,7 @@ export default function AddTestCasePanel({
             type="button"
             onClick={() => {
               setExpanded(false);
-              setTestCases([{ id: uuidv4(), inputContent: "", outputContent: "" }]);
+              setTestCases([{ id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }]);
               setError(null);
             }}
             style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", background: "none", border: "none", cursor: "pointer" }}
@@ -141,7 +142,18 @@ export default function AddTestCasePanel({
         {testCases.map((tc, idx) => (
           <div key={tc.id} className="p-4 border border-gray-200 rounded-md bg-gray-50 relative">
              <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold text-sm">Test Case #{idx + 1}</span>
+                <div className="flex items-center gap-4">
+                  <span className="font-semibold text-sm">Test Case #{idx + 1}</span>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={tc.isPublic}
+                      onChange={(e) => handleUpdateTestCaseField(tc.id, "isPublic", e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-600 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
+                  </label>
+                </div>
                 {testCases.length > 1 && (
                   <button 
                     onClick={() => handleRemoveTestCaseField(tc.id)} 
@@ -195,7 +207,7 @@ export default function AddTestCasePanel({
             type="button"
             onClick={() => {
               setExpanded(false);
-              setTestCases([{ id: uuidv4(), inputContent: "", outputContent: "" }]);
+              setTestCases([{ id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }]);
               setError(null);
             }}
             style={{

@@ -16,14 +16,8 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
     notFound();
   }
 
-  let extractedCategory = "Programming";
-  let extractedDifficulty = "Easy";
-  
-  const catMatch = p.description.match(/\*\*Category:\*\*\s*(.*?)\s*\|/);
-  if (catMatch) extractedCategory = catMatch[1].trim();
-
-  const diffMatch = p.description.match(/\*\*Difficulty:\*\*\s*(.*?)\n/);
-  if (diffMatch) extractedDifficulty = diffMatch[1].trim();
+  let extractedCategory = p.category;
+  let extractedDifficulty = p.difficulty;
 
   const problem = {
     id: p.id,
