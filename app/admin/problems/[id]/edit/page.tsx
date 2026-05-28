@@ -26,7 +26,7 @@ export default async function EditProblemPage({ params }: { params: Promise<{ id
     memoryLimit: p.memory_limit,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
-    testCases: p.test_cases.map(tc => ({
+    testCases: p.test_cases.map((tc: typeof p.test_cases[number]) => ({
       id: tc.id,
       filename: tc.filename,
       inputUrl: tc.input_url || undefined,

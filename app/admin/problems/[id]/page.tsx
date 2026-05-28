@@ -30,7 +30,8 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
     memoryLimit: p.memory_limit,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
-    testCases: p.test_cases.map(tc => ({
+    // 🎯 แก้ไขจุดนี้: ใส่ Type ให้ตัวแปร tc โดยดึงจากอาเรย์ในตัวแปร p ตรงๆ
+    testCases: p.test_cases.map((tc: typeof p.test_cases[number]) => ({
       id: tc.id,
       filename: tc.filename,
       inputUrl: tc.input_url || undefined,
