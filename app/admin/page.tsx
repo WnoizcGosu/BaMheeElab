@@ -9,9 +9,12 @@ export default async function AdminDashboard() {
   const problems = dbProblems;
 
   const programmingCount = problems.filter(
-    (p) => p.category === "Programming" || p.category === "General" || !p.category
+  (p: { category?: string | null }) => p.category === "Programming" || p.category === "General" || !p.category
   ).length;
-  const statCount = problems.filter((p) => p.category === "Stat" || p.category === "Statistical Programming").length;
+
+  const statCount = problems.filter(
+  (p: { category?: string | null }) => p.category === "Stat" || p.category === "Statistical Programming"
+  ).length;
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
