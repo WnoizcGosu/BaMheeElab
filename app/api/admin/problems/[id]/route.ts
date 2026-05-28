@@ -116,7 +116,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       select: { id: true }
     });
     
-    const submissionIds = submissions.map(s => s.id);
+    const submissionIds = submissions.map((s: typeof submissions[number]) => s.id);
     
     if (submissionIds.length > 0) {
       await prisma.testCaseResult.deleteMany({

@@ -11,7 +11,7 @@ export default async function SubmissionsIndexPage() {
     orderBy: { submitted_at: 'desc' }
   });
 
-  const submissions = dbSubmissions.map(sub => ({
+  const submissions = dbSubmissions.map((sub: typeof dbSubmissions[number]) => ({
     id: sub.id,
     problemId: sub.problem_id,
     problemTitle: sub.problem.title,
@@ -23,7 +23,7 @@ export default async function SubmissionsIndexPage() {
             sub.status === 'COMPILE_ERROR' ? 'Compilation Error' : 'Pending',
     executionTime: sub.runtime || 0,
     memoryUsed: sub.memory || 0,
-    testCaseResults: sub.test_case_results.map(tc => ({
+    testCaseResults: sub.test_case_results.map((tc: typeof sub.test_case_results[number]) => ({
       status: tc.passed ? 'Passed' : 'Failed'
     }))
   }));
@@ -51,9 +51,9 @@ export default async function SubmissionsIndexPage() {
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {submissions.map((sub) => {
+        {submissions.map((sub: typeof dbSubmissions[number]) => {
           const passed = sub.status === "Passed";
-          const passedCount = sub.testCaseResults.filter((tc) => tc.status === "Passed").length;
+          const passedCount = sub.testCaseResults.filter((tc: typeof sub.test_case_results[number]) => tc.status === "Passed").length;
           const total = sub.testCaseResults.length;
 
           return (
