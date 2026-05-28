@@ -39,7 +39,7 @@ export default async function SubmissionResultPage({
     executionTime: dbSub.runtime || 0,
     memoryUsed: dbSub.memory || 0,
     code: dbSub.source_code,
-    testCaseResults: dbSub.test_case_results.map(tc => ({
+    testCaseResults: dbSub.test_case_results.map((tc: typeof dbSub.test_case_results[number]) => ({
       testCaseId: tc.test_case_id,
       status: tc.passed ? 'Passed' : 'Failed',
       executionTime: tc.runtime || 0,
@@ -51,7 +51,7 @@ export default async function SubmissionResultPage({
   };
 
   const isPassed = submission.status === "Passed";
-  const passedCount = submission.testCaseResults.filter((tc) => tc.status === "Passed").length;
+  const passedCount = submission.testCaseResults.filter((tc: typeof dbSub.test_case_results[number]) => tc.status === "Passed").length;
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 24px" }}>
@@ -180,7 +180,7 @@ export default async function SubmissionResultPage({
         </div>
 
         <div>
-          {submission.testCaseResults.map((tc, index) => {
+          {submission.testCaseResults.map((tc: typeof submission.testCaseResults[number], index: number) => {
             const tcPassed = tc.status === "Passed";
             return (
               <div
