@@ -2,71 +2,51 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud, File, X, Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 
 export default function CreateProblemPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [testCases, setTestCases] = useState<File[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    category: "Programming",
+    difficulty: "Easy" as "Easy" | "Medium" | "Hard" | "God",
     timeLimit: 1000,
     memoryLimit: 256,
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setTestCases((prev) => [...prev, ...Array.from(e.target.files as FileList)]);
+  const [testCases, setTestCases] = useState<{ id: string; inputContent: string; outputContent: string; isPublic: boolean }[]>([
+    { id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }
+  ]);
+
+  const handleAddTestCaseField = () => {
+    setTestCases([...testCases, { id: uuidv4(), inputContent: "", outputContent: "", isPublic: false }]);
+  };
+
+  const handleRemoveTestCaseField = (id: string) => {
+    if (testCases.length > 1) {
+      setTestCases(testCases.filter(tc => tc.id !== id));
     }
   };
 
-  const removeFile = (index: number) => {
-    setTestCases((prev) => prev.filter((_, i) => i !== index));
+  const handleUpdateTestCaseField = (id: string, field: "inputContent" | "outputContent" | "isPublic", value: string | boolean) => {
+    setTestCases(testCases.map(tc => tc.id === id ? { ...tc, [field]: value } : tc));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setUploadingFiles(true);
-
     try {
-      const uploadedCases = [];
-
-      // Upload test cases to S3/MinIO via Next.js API
-      for (const file of testCases) {
-        const fileFormData = new FormData();
-        fileFormData.append("file", file);
-
-        const uploadRes = await fetch("/api/admin/testcases/upload", {
-          method: "POST",
-          body: fileFormData,
-        });
-
-        if (uploadRes.ok) {
-          const data = await uploadRes.json();
-          uploadedCases.push({
-            id: data.s3Key || Math.random().toString(),
-            filename: data.filename || file.name,
-            inputUrl: data.fileUrl,
-          });
-        } else {
-          console.error("Failed to upload", file.name);
-        }
-      }
-
-      setUploadingFiles(false);
-
+      const validTestCases = testCases.filter(tc => tc.inputContent.trim() !== "" && tc.outputContent.trim() !== "");
       const res = await fetch("/api/admin/problems", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          testCases: uploadedCases,
+          testCases: validTestCases,
         }),
       });
 
@@ -80,122 +60,240 @@ export default function CreateProblemPage() {
       console.error(error);
     } finally {
       setIsSubmitting(false);
-      setUploadingFiles(false);
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Create New Problem</h1>
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    border: "1px solid var(--border-light)",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--bg-card)",
+    color: "var(--text-primary)",
+    fontSize: 14,
+    outline: "none",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+  };
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="space-y-4">
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    marginBottom: 6,
+  };
+
+  const focusHandlers = {
+    onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      e.currentTarget.style.borderColor = "var(--accent-orange)";
+      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
+    },
+    onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      e.currentTarget.style.borderColor = "var(--border-light)";
+      e.currentTarget.style.boxShadow = "none";
+    },
+  };
+
+  return (
+    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 20px" }}>
+        Create New Problem
+      </h1>
+
+      <div className="card" style={{ overflow: "hidden" }}>
+        <form onSubmit={handleSubmit} style={{ padding: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label style={labelStyle}>Title</label>
               <input
                 required
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                style={inputStyle}
                 placeholder="e.g. A+B Problem"
+                {...focusHandlers}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label style={labelStyle}>Description</label>
               <textarea
                 required
                 rows={5}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                style={{ ...inputStyle, resize: "vertical" }}
                 placeholder="Describe the problem..."
+                {...focusHandlers}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time Limit (ms)</label>
+                <label style={labelStyle}>Category</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  <option value="Programming">Programming</option>
+                  <option value="Stat">Statistical Programming</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Difficulty</label>
+                <select
+                  value={formData.difficulty}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      difficulty: e.target.value as "Easy" | "Medium" | "Hard" | "God",
+                    })
+                  }
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  <option value="Easy">EASY</option>
+                  <option value="Medium">MEDIUM</option>
+                  <option value="Hard">HARD</option>
+                  <option value="God">GOD</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Time Limit (ms)</label>
                 <input
                   required
                   type="number"
                   value={formData.timeLimit}
                   onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                  style={inputStyle}
+                  {...focusHandlers}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Memory Limit (MB)</label>
+                <label style={labelStyle}>Memory Limit (MB)</label>
                 <input
                   required
                   type="number"
                   value={formData.memoryLimit}
                   onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                  style={inputStyle}
+                  {...focusHandlers}
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Test Cases</h3>
+          <div style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
+              Test Cases
+            </h3>
             
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
-              <input
-                type="file"
-                multiple
-                id="testcases"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <label htmlFor="testcases" className="cursor-pointer flex flex-col items-center gap-2">
-                <UploadCloud className="text-gray-400" size={32} />
-                <span className="text-sm font-medium text-blue-600 hover:text-blue-700">Click to upload files</span>
-                <span className="text-xs text-gray-500">.txt, .zip up to 10MB</span>
-              </label>
-            </div>
-
-            {testCases.length > 0 && (
-              <ul className="mt-4 space-y-2">
-                {testCases.map((file, idx) => (
-                  <li key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <File size={18} className="text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700">{file.name}</span>
-                      <span className="text-xs text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
+            <div className="flex flex-col gap-4">
+              {testCases.map((tc, idx) => (
+                <div key={tc.id} className="p-4 border border-gray-200 rounded-md bg-gray-50 relative">
+                  <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-4">
+                        <span className="font-semibold text-sm">Test Case #{idx + 1}</span>
+                        <label className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={tc.isPublic}
+                            onChange={(e) => handleUpdateTestCaseField(tc.id, "isPublic", e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-gray-600 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
+                        </label>
+                      </div>
+                      {testCases.length > 1 && (
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveTestCaseField(tc.id)} 
+                          className="text-red-500 hover:text-red-700"
+                          title="Remove Test Case"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Input Data</label>
+                      <textarea 
+                        className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        rows={4}
+                        value={tc.inputContent}
+                        onChange={(e) => handleUpdateTestCaseField(tc.id, "inputContent", e.target.value)}
+                        placeholder="Enter input string..."
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(idx)}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Expected Output</label>
+                      <textarea 
+                        className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        rows={4}
+                        value={tc.outputContent}
+                        onChange={(e) => handleUpdateTestCaseField(tc.id, "outputContent", e.target.value)}
+                        placeholder="Enter expected output..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <button 
+                type="button"
+                onClick={handleAddTestCaseField}
+                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 self-start"
+              >
+                <Plus size={16} /> Add Another Test Case Field
+              </button>
+            </div>
           </div>
 
-          <div className="border-t border-gray-200 pt-6 flex justify-end gap-3">
+          <div
+            className="flex justify-end gap-3"
+            style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}
+          >
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              style={{
+                padding: "10px 22px",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                background: "transparent",
+                border: "1px solid var(--border-medium)",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-70"
+              className="flex items-center gap-2"
+              style={{
+                padding: "10px 22px",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "white",
+                background: "linear-gradient(135deg, #E8652B, #D4541E)",
+                border: "none",
+                borderRadius: "var(--radius-sm)",
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+                opacity: isSubmitting ? 0.7 : 1,
+              }}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
-                  {uploadingFiles ? "Uploading Files..." : "Saving..."}
+                  <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} />
+                  {isSubmitting ? "Saving..." : "Saving..."}
                 </>
               ) : (
                 "Create Problem"

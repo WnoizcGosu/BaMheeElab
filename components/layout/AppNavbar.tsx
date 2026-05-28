@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, Home, ShieldAlert } from "lucide-react"; 
+import { Home, ShieldAlert } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 
@@ -19,7 +19,7 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
   const userInitial = (session?.user?.name?.[0] || session?.user?.email?.[0] || username?.[0] || "U").toUpperCase();
 
   // 🎯 ปรับจุดที่ 1: ใช้ (session?.user as any) เพื่อไม่ให้ TS บ่นเรื่องสิทธิ์ role
-  const isAdmin = (session?.user as any)?.role === "admin";
+  const isAdmin = session?.user?.role === "admin";
 
   return (
     <header className="sticky top-0 z-50 bg-brand-red shadow-md">
