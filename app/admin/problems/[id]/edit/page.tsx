@@ -13,8 +13,8 @@ export default async function EditProblemPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  let extractedCategory = p.category;
-  let extractedDifficulty = p.difficulty;
+  const extractedCategory = p.category;
+  const extractedDifficulty = p.difficulty;
 
   const problem = {
     id: p.id,
