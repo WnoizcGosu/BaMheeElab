@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // 🎯 Imported useRef
 // Added Instagram, Discord, Github, and ArrowUp icons
 import { Home, BookOpen, Users, Trophy, Code2, ChevronRight, Star, Zap, Instagram, Disc, Github, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,9 +48,17 @@ const features = [
 ];
 
 export default function LandingPage() {
+  const footerRef = useRef<HTMLElement>(null); // 🎯 Create a reference anchor for the footer
+
   // Smooth scroll handler for the "Back to Top" button layout behavior
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // 🎯 Smooth scroll handler for scrolling down to the footer
+  const scrollToFooter = (e: React.MouseEvent) => {
+    e.preventDefault(); // Stop page from hard reloading/jumping
+    footerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -64,9 +72,10 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-20">
-            <Link href="/">
-              <p className="text-sm text-gray-500 hover:text-brand-red transition-colors font-medium">About</p>
-            </Link>
+            {/* 🎯 Changed Link wrapper to a button/anchor behavior with click logic */}
+            <a href="#about-footer" onClick={scrollToFooter}>
+              <p className="text-sm text-gray-500 hover:text-brand-red transition-colors font-medium cursor-pointer">About</p>
+            </a>
             <Link href="/problems">
               <p className="text-sm text-gray-500 hover:text-brand-red transition-colors font-medium">Elab</p>
             </Link>
@@ -134,7 +143,8 @@ export default function LandingPage() {
       </main>        
 
       {/* ── Refactored Footer Component ── */}
-      <footer className="bg-[#1D1313] text-white pt-16 pb-6 relative overflow-hidden">
+      {/* 🎯 Attached ref={footerRef} and id="about-footer" here */}
+      <footer ref={footerRef} id="about-footer" className="bg-[#1D1313] text-white pt-16 pb-6 relative overflow-hidden scroll-mt-16">
         {/* Background ambient geometric accents mimicking your reference layout design background */}
         <div className="absolute inset-0 opacity-[0.02] pointer-events-none">
           <div className="absolute right-0 bottom-0 w-[600px] h-[400px] border-l border-t border-white transform rotate-12 origin-bottom-right" />
@@ -162,7 +172,6 @@ export default function LandingPage() {
                 BaMhee Elab ยินดีต้อนรับเหล่านักพัฒนาตัวน้อยที่มีไฟและพร้อมจะเติบโตไปด้วยกันเสมอ!
               </p>
             </div>
-
 
             <div className="flex items-center gap-5">
               {/* Combined Social Anchor Link targeting group hover */}
@@ -225,7 +234,6 @@ export default function LandingPage() {
               </li>
             </ul>
           </div>
-
 
         </div>
 
