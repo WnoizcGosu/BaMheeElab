@@ -154,7 +154,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Languages */}
-            <div className="bg-white rounded-2xl p-5 border border-[#F5CBA7] shadow-sm">
+            {/* <div className="bg-white rounded-2xl p-5 border border-[#F5CBA7] shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Code2 className="w-4 h-4 text-brand-red" />
                 <h3 className="font-display font-bold text-sm text-gray-800">Languages</h3>
@@ -179,7 +179,7 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Solve distribution */}
             <div className="bg-white rounded-2xl p-6 border border-[#F5CBA7] shadow-sm">

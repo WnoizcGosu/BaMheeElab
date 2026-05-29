@@ -28,7 +28,13 @@ export const authOptions = {
         const isValidPassword = await bcrypt.compare(credentials.password, user.password);
         if (!isValidPassword) throw new Error("Invalid username or password");
 
-        return { id: user.id, name: user.username, email: user.email };
+        // ✨ คืนค่าข้อมูลและแนบ role จากไฟล์ JSON กลับไปด้วย (ถ้าไม่มีให้เป็น student)
+        return { 
+          id: user.id, 
+          name: user.username, 
+          email: user.email,
+          role: user.role || "student" 
+        };
       }
     })
   ],
@@ -50,7 +56,6 @@ export const authOptions = {
           }
 
           // 2. If not found, generate a clean username handle from their Gmail address
-          // e.g., proudnapassara@gmail.com -> proudnapassara
           const baseUsername = user.email.split("@")[0].toLowerCase();
           
           // Make sure the username handle doesn't conflict with an existing manual registration
@@ -62,21 +67,45 @@ export const authOptions = {
           console.log(`[OAUTH AUTO-REGISTER] Creating account wrapper for: ${finalUsername}`);
 
           // 3. Write them into our mock file database
+          // ✨ เพิ่มบทบาทเริ่มต้นเป็น "student" ทันทีสำหรับคนสมัครใหม่ผ่าน Google
           await createUser({
             username: finalUsername,
             email: user.email,
-            password: crypto.randomUUID(), // OAuth profiles don't need passwords, so we store a random string
+            password: crypto.randomUUID(), 
+            role: "student",
           });
 
           console.log(`[OAUTH REGISTER SUCCESS] New Google account linked to users.json!`);
-          return true; // Return true to allow the sign-in process to complete
+          return true; 
         } catch (error) {
           console.error("[OAUTH CRASH] Failed to link Google profile with file database:", error);
-          return false; // Return false to reject the login if database write fails
+          return false; 
         }
       }
       
-      return true; // Allow standard credentials users to pass right through
+      return true; 
+    },
+
+    // 🎯 จุดที่เพิ่ม 1: บันทึกข้อมูลสิทธิ์ (role) ลงในหลังบ้าน JWT Token
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role || "student";
+      } else if (token.email) {
+        // ดึงจากคลังไฟล์ข้อมูลอีกครั้งเพื่อความชัวร์ (กรณีเป็น Google User ยูสเซอร์เก่า)
+        const dbUser = await findUserByEmail(token.email);
+        if (dbUser) {
+          token.role = dbUser.role || "student";
+        }
+      }
+      return token;
+    },
+
+    // 🎯 จุดที่เพิ่ม 2: ยิงสิทธิ์ออกไปให้หน้าบ้าน (Client) สแกนอ่านค่าได้ผ่าน useSession()
+    async session({ session, token }) {
+      if (session?.user) {
+        session.user.role = token.role;
+      }
+      return session;
     }
   },
 
@@ -91,4 +120,3 @@ export const authOptions = {
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-export default handler;
