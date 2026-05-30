@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronLeft, Play, Send, ChevronDown,
-  CheckCircle, XCircle, Clock, Terminal, ChevronUp,
+  CheckCircle, XCircle, Clock, Terminal, ChevronUp, Code2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,69 @@ export default function CodingPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
+  // 🎯 State สำหรับ Pyodide & Custom Input
+  const [isPyodideReady, setIsPyodideReady] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+  const [terminalTab, setTerminalTab] = useState<"output" | "input">("output");
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  // 🎯 State สำหรับยืด-หด Terminal
+  const [terminalHeight, setTerminalHeight] = useState(200); // ค่าเริ่มต้น 200px
+  const [isDragging, setIsDragging] = useState(false);
+
+  // 🎯 Effect ควบคุมการลากเมาส์เพื่อยืด/หด
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      // คำนวณความสูงจากขอบล่างของจอภาพ
+      const newHeight = window.innerHeight - e.clientY;
+      // จำกัดความสูงไม่ให้น้อยกว่า 40px และไม่ให้สูงเกิน 80% ของหน้าจอ
+      setTerminalHeight(Math.max(40, Math.min(newHeight, window.innerHeight * 0.8)));
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "none"; // ป้องกันการคลุมดำข้อความตอนลาก
+      document.body.style.cursor = "row-resize"; 
+    } else {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [isDragging]);
+
+  // โหลด Pyodide
+  useEffect(() => {
+    const loadPyodide = async () => {
+      if ((window as any).pyodideInstance) {
+        setIsPyodideReady(true);
+        return;
+      }
+      try {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
+        script.onload = async () => {
+          const pyodide = await (window as any).loadPyodide();
+          (window as any).pyodideInstance = pyodide;
+          setIsPyodideReady(true);
+        };
+        document.body.appendChild(script);
+      } catch (err) {
+        console.error("Failed to load Pyodide", err);
+      }
+    };
+    loadPyodide();
+  }, []);
+
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const problemId = queryParams.get("id"); 
@@ -95,9 +158,7 @@ export default function CodingPage() {
     }
   };
 
-  // 🎯 ฟังก์ชันช่วยลงทะเบียนฐานคีย์เวิร์ดคำศัพท์อัตโนมัติเมื่อ Editor ทำการ Mount เสร็จสิ้น
   const handleEditorMount = (editor: any, monaco: any) => {
-    // 🐍 ลงทะเบียนคำศัพท์แนะนำพื้นฐานสำหรับภาษา Python
     monaco.languages.registerCompletionItemProvider("python", {
       provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position);
@@ -122,7 +183,6 @@ export default function CodingPage() {
       },
     });
 
-    // 🇨🇨 ลงทะเบียนคำศัพท์แนะนำสำหรับภาษา C และ C++
     const cProvider = {
       provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position);
@@ -141,16 +201,50 @@ export default function CodingPage() {
     monaco.languages.registerCompletionItemProvider("cpp", cProvider);
   };
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setRunStatus("running");
-    setOutput("Running test cases…");
-    setTimeout(() => {
+    setTerminalTab("output");
+    
+    if (lang !== "Python") {
+      setOutput(`Error: Browser execution is currently only supported for Python.\nPlease submit to run ${lang} on the server.`);
+      setRunStatus("failed");
+      return;
+    }
+
+    if (!isPyodideReady) {
+      setOutput("Initializing Python Environment... Please try again in a moment.");
+      setRunStatus("failed");
+      return;
+    }
+
+    const pyodide = (window as any).pyodideInstance;
+    let currentOutput = "";
+    
+    const inputLines = customInput.split('\n');
+    let inputIndex = 0;
+
+    pyodide.setStdout({
+      batched: (text: string) => { currentOutput += text + "\n"; }
+    });
+    
+    pyodide.setStdin({
+      stdin: () => {
+        if (inputIndex < inputLines.length) {
+          return inputLines[inputIndex++] + "\n";
+        }
+        return "\n";
+      }
+    });
+
+    try {
+      setOutput("Running...");
+      await pyodide.runPythonAsync(code);
+      setOutput(currentOutput || "Code executed successfully. (No output)");
       setRunStatus("passed");
-      setOutput(
-        "✅  All sample test cases passed!\n\n" +
-        "Runtime: 28ms | Memory: 14.2 MB"
-      );
-    }, 1500);
+    } catch (error: any) {
+      setOutput(error.message);
+      setRunStatus("failed");
+    }
   };
 
   const handleSubmit = () => {
@@ -241,7 +335,7 @@ export default function CodingPage() {
         </div>
 
         {/* ── RIGHT: Editor panel ── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden relative">
           {/* Toolbar */}
           <div className="flex items-center px-4 py-2.5 bg-white border-b border-[#F5CBA7] gap-3">
             <div className="flex items-center gap-1 bg-[#FFF9F0] rounded-full p-0.5 border border-[#F5CBA7]">
@@ -274,8 +368,8 @@ export default function CodingPage() {
 
             {tab === "current" && (
               <div className="flex items-center gap-2 ml-auto">
-                <Button variant="outline" size="sm" onClick={handleRun} className="h-8 text-xs gap-1.5">
-                  <Play className="w-3 h-3" /> Run
+                <Button variant="outline" size="sm" onClick={handleRun} disabled={runStatus === "running"} className="h-8 text-xs gap-1.5">
+                  {runStatus === "running" ? <Clock className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Run
                 </Button>
                 <Button size="sm" onClick={handleSubmit} className="h-8 text-xs gap-1.5">
                   <Send className="w-3 h-3" /> Submit
@@ -287,14 +381,14 @@ export default function CodingPage() {
           {/* TAB CONTENT: CURRENT */}
           {tab === "current" && (
             <div className="flex-1 overflow-hidden flex flex-col bg-white">
-              <div className="flex-1 w-full pt-2 bg-white">
+              <div className="flex-1 w-full pt-2 bg-white" style={{ minHeight: "100px" }}>
                 <Editor
                   height="100%"
                   width="100%"
                   language={getMonacoLanguage(lang)}
                   value={code}
                   onChange={(value) => setCode(value || "")}
-                  onMount={handleEditorMount} // 🎯 ผูกท่อลงทะเบียนฐานคีย์เวิร์ดเข้า IDE
+                  onMount={handleEditorMount}
                   loading={
                     <div className="p-5 text-sm text-gray-400 italic">
                       Initializing IDE Environment...
@@ -310,31 +404,66 @@ export default function CodingPage() {
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     tabSize: 4,
-
                     quickSuggestions: { other: true, comments: true, strings: true }, 
                     suggestOnTriggerCharacters: true,  
                     wordBasedSuggestions: "allDocuments", 
                     acceptSuggestionOnEnter: "on",     
                     tabCompletion: "on",                
                     snippetSuggestions: "inline",      
-                    fixedOverflowWidgets: true, // 🎯 ป้องกันไม่ให้กล่องคำแนะนำจมหายไปใน Layout หลังบ้าน
+                    fixedOverflowWidgets: true,
                   }}
                 />
               </div>
               
-              {/* Output terminal */}
-              <div className="border-t border-[#F5CBA7] bg-white">
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F5CBA7]">
-                  <Terminal className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Output</span>
+              {/* 🎯 Drag Handle (เส้นปรับขนาด) */}
+              <div 
+                className={cn(
+                  "h-1.5 bg-[#F5CBA7] cursor-row-resize flex items-center justify-center transition-colors hover:bg-brand-red",
+                  isDragging && "bg-brand-red"
+                )}
+                onMouseDown={() => setIsDragging(true)}
+              >
+                <div className="w-8 h-0.5 bg-white/50 rounded-full" />
+              </div>
+              
+              {/* Output terminal & Custom Input */}
+              <div 
+                className="bg-white flex flex-col"
+                style={{ height: `${terminalHeight}px` }}
+              >
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F5CBA7] bg-[#FFF9F0] flex-shrink-0">
+                  <button 
+                    onClick={() => setTerminalTab("output")}
+                    className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "output" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}
+                  >
+                    <Terminal className="w-4 h-4" /> Output
+                  </button>
+                  <button 
+                    onClick={() => setTerminalTab("input")}
+                    className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "input" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}
+                  >
+                    <Code2 className="w-4 h-4" /> Custom Input
+                  </button>
                 </div>
-                <div className="h-36 p-4 overflow-y-auto">
-                  {output ? (
-                    <pre className="font-code text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">{output}</pre>
-                  ) : (
-                    <div className="h-full flex items-center justify-center">
-                      <p className="text-xs text-gray-300 italic">Click &ldquo;Run&rdquo; to test your code</p>
+                
+                <div className="flex-1 p-0 overflow-hidden relative bg-white">
+                  {terminalTab === "output" ? (
+                    <div className="h-full w-full p-4 overflow-y-auto">
+                      {output ? (
+                        <pre className={cn("font-code text-xs leading-relaxed whitespace-pre-wrap", runStatus === "failed" ? "text-red-500" : "text-gray-700")}>{output}</pre>
+                      ) : (
+                        <div className="h-full flex items-center justify-center">
+                          <p className="text-xs text-gray-300 italic">Click &ldquo;Run&rdquo; to test your code</p>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <textarea 
+                      value={customInput}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      placeholder="Enter custom input here (each line represents one input() call)"
+                      className="h-full w-full p-4 font-code text-xs text-gray-700 resize-none outline-none focus:ring-0 border-none"
+                    />
                   )}
                 </div>
               </div>
