@@ -51,24 +51,20 @@ public class Main {
 `,
 };
 
-const PROBLEM = {
-  title:      "A + B Problems",
-  difficulty: "Easy",
-  tags:       ["Math"],
-  completion: 70.5,
-  description: `Given two integers A and B, output the sum A + B.
-
-This is a classic introductory problem designed to test your ability to read input and produce output in your chosen language.`,
-  constraints: [
-    "-10^9 ≤ A, B ≤ 10^9",
-    "Input contains exactly two integers",
-  ],
-  examples: [
-    { input: "1 2",     output: "3",  explanation: "1 + 2 = 3" },
-    { input: "100 -50", output: "50", explanation: "100 + (-50) = 50" },
-    { input: "-5 -3",   output: "-8", explanation: "(-5) + (-3) = -8" },
-  ],
-};
+interface ProblemData {
+  id: string;
+  title: string;
+  difficulty: string;
+  tags: string[];
+  completion: number;
+  description: string;
+  constraints: string[];
+  examples: {
+    input: string;
+    output: string;
+    explanation: string;
+  }[];
+}
 
 type RunStatus = "idle" | "running" | "passed" | "failed";
 
@@ -88,7 +84,7 @@ function formatDate(d: Date) {
     + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function CodingPage() {
+export default function CodingClient({ problem }: { problem: ProblemData }) {
   const [lang,        setLang]        = useState("Python");
   const [code,        setCode]        = useState(STARTER_CODE["Python"]);
   const [tab,         setTab]         = useState<"current" | "recent" | "all">("current");
@@ -167,27 +163,27 @@ export default function CodingPage() {
                 <ChevronLeft className="w-3 h-3" /> back
               </button>
             </Link>
-            <h1 className="font-display text-xl font-bold text-gray-900 mb-2">{PROBLEM.title}</h1>
+            <h1 className="font-display text-xl font-bold text-gray-900 mb-2">{problem.title}</h1>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={PROBLEM.difficulty.toLowerCase() as "easy" | "medium" | "hard"}>
-                {PROBLEM.difficulty}
+              <Badge variant={problem.difficulty.toLowerCase() as "easy" | "medium" | "hard"}>
+                {problem.difficulty}
               </Badge>
-              {PROBLEM.tags.map((t) => (
+              {problem.tags.map((t) => (
                 <Badge key={t} variant="topic">{t}</Badge>
               ))}
-              <span className="text-xs text-gray-400 ml-auto">{PROBLEM.completion}% acceptance</span>
+              <span className="text-xs text-gray-400 ml-auto">{problem.completion}% acceptance</span>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5 text-sm text-gray-700">
             <div>
               <h2 className="font-display font-bold text-gray-900 mb-2">Description</h2>
-              <p className="leading-relaxed whitespace-pre-line">{PROBLEM.description}</p>
+              <p className="leading-relaxed whitespace-pre-line">{problem.description}</p>
             </div>
             <div>
               <h2 className="font-display font-bold text-gray-900 mb-2">Constraints</h2>
               <ul className="space-y-1">
-                {PROBLEM.constraints.map((c) => (
+                {problem.constraints.map((c) => (
                   <li key={c} className="flex items-start gap-2">
                     <span className="text-brand-red mt-0.5">•</span>
                     <code className="font-code text-xs bg-[#FFF9F0] px-1.5 py-0.5 rounded">{c}</code>
@@ -195,7 +191,7 @@ export default function CodingPage() {
                 ))}
               </ul>
             </div>
-            {PROBLEM.examples.map((ex, i) => (
+            {problem.examples.map((ex, i) => (
               <div key={i}>
                 <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
                 <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">

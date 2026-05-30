@@ -7,6 +7,7 @@ import { Home, BookOpen, Users, Trophy, Code2, ChevronRight, Star, Zap, Instagra
 import { Button } from "@/components/ui/button";
 import BowlIllustration from "@/components/shared/BowlIllustration";
 import WaveSection from "@/components/shared/WaveSection";
+import { useSession, signOut } from "next-auth/react";
 
 const features = [
   {
@@ -48,6 +49,8 @@ const features = [
 ];
 
 export default function LandingPage() {
+  const { data: session } = useSession();
+
   // Smooth scroll handler for the "Back to Top" button layout behavior
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -73,12 +76,28 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">Log in</Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Create Account</Button>
-            </Link>
+            {session ? (
+              <>
+                {session.user?.role === "ADMIN" && (
+                  <Link href="/admin">
+                    <Button variant="outline" size="sm" className="border-brand-red text-brand-red hover:bg-brand-red hover:text-white">Admin Dashboard</Button>
+                  </Link>
+                )}
+                <Link href="/problems">
+                  <Button variant="ghost" size="sm">Go to Elab</Button>
+                </Link>
+                <Button variant="ghost" size="sm" onClick={() => signOut()}>Sign Out</Button>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm">Log in</Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm">Create Account</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

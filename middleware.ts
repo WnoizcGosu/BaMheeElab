@@ -12,7 +12,7 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/admin")) {
     // ถ้ายังไม่ได้ล็อกอิน หรือ มีล็อกอินแล้วแต่ Role ไม่ใช่แอดมิน
     // ใช้ (token as any) เพื่อบอก TypeScript ไม่ให้แจ้งเตือนเรื่อง property 'role'
-    if (!token || token.role !== "admin") {
+    if (!token || (token.role !== "admin" && token.role !== "ADMIN")) {
       // ดีดส่งกลับไปที่หน้าแสดงโจทย์ทันที ป้องกันระบบพัง
       return NextResponse.redirect(new URL("/problems", req.url));
     }
