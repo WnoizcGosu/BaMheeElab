@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const problemId = uuidv4(); 
     
     // 🚨 อย่าลืมแก้: ใส่ UUID ของ User จากฐานข้อมูลของคุณลงไปชั่วคราวก่อน (เพราะ DB บังคับ)
-    const adminUserId = "เอา id ของ user ที่เป็น admin มาใส่"; 
+    const adminUserId = "7393645e-cb6e-46d3-84fb-fa3d9398e237"; 
 
     // 2. เตรียมข้อมูล Test Cases และจัดการอัปโหลดขึ้น S3
     const preparedTestCases = [];

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
 import { cn } from "@/lib/utils";
+import Editor from "@monaco-editor/react";
 
 const LANGUAGES = ["Python", "C", "C++", "Java", "JavaScript"];
 
@@ -27,13 +28,13 @@ interface Example {
 }
 
 interface ProblemDetail {
-  id: number;
+  id: string; 
   title: string;
   difficulty: string;
   tags: string[];
   completion: number;
   description: string;
-  constraints: string[];
+  constraints: string[]; 
   examples: Example[];
 }
 
@@ -62,18 +63,19 @@ export default function CodingPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  // Load problem asynchronously from URL params mapping
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    const problemId = parseInt(queryParams.get("id") || "1", 10);
+    const problemId = queryParams.get("id"); 
 
-    fetch("/data/problems.json")
-      .then((res) => res.json())
-      .then((data: ProblemDetail[]) => {
-        const found = data.find((p) => p.id === problemId);
-        if (found) {
-          setProblem(found);
-        }
+    if (!problemId) return;
+
+    fetch(`/api/problems/${problemId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Network response failure");
+        return res.json();
+      })
+      .then((data: ProblemDetail) => {
+        setProblem(data);
       })
       .catch((err) => console.error("Error loading problem profile:", err));
   }, []);
@@ -83,6 +85,60 @@ export default function CodingPage() {
     setCode(STARTER_CODE[l] ?? "");
     setRunStatus("idle");
     setOutput("");
+  };
+
+  const getMonacoLanguage = (displayLang: string) => {
+    switch (displayLang) {
+      case "C++": return "cpp";
+      case "JavaScript": return "javascript";
+      default: return displayLang.toLowerCase();
+    }
+  };
+
+  // 🎯 ฟังก์ชันช่วยลงทะเบียนฐานคีย์เวิร์ดคำศัพท์อัตโนมัติเมื่อ Editor ทำการ Mount เสร็จสิ้น
+  const handleEditorMount = (editor: any, monaco: any) => {
+    // 🐍 ลงทะเบียนคำศัพท์แนะนำพื้นฐานสำหรับภาษา Python
+    monaco.languages.registerCompletionItemProvider("python", {
+      provideCompletionItems: (model: any, position: any) => {
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+        
+        const pythonKeywords = [
+          { label: "print", kind: monaco.languages.CompletionItemKind.Function, insertText: "print($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "พิมพ์ข้อมูลออกทางหน้าจอ", range },
+          { label: "input", kind: monaco.languages.CompletionItemKind.Function, insertText: "input($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "รับข้อมูลจากคีย์บอร์ด", range },
+          { label: "len", kind: monaco.languages.CompletionItemKind.Function, insertText: "len($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "range", kind: monaco.languages.CompletionItemKind.Function, insertText: "range($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "def", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "def ", range },
+          { label: "import", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "import ", range },
+          { label: "for", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "for i in range($1):\n\t$0", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "if", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "if $1:\n\t$0", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+        ];
+        return { suggestions: pythonKeywords };
+      },
+    });
+
+    // 🇨🇨 ลงทะเบียนคำศัพท์แนะนำสำหรับภาษา C และ C++
+    const cProvider = {
+      provideCompletionItems: (model: any, position: any) => {
+        const word = model.getWordUntilPosition(position);
+        const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn };
+        const cKeywords = [
+          { label: "printf", kind: monaco.languages.CompletionItemKind.Function, insertText: "printf(\"$1\\n\"$2);", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "scanf", kind: monaco.languages.CompletionItemKind.Function, insertText: "scanf(\"$1\", &$2);", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "cout", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "cout << $1 << endl;", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "cin", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "cin >> $1;", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "include", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "#include <$1>", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+        ];
+        return { suggestions: cKeywords };
+      }
+    };
+    monaco.languages.registerCompletionItemProvider("c", cProvider);
+    monaco.languages.registerCompletionItemProvider("cpp", cProvider);
   };
 
   const handleRun = () => {
@@ -158,17 +214,7 @@ export default function CodingPage() {
               <h2 className="font-display font-bold text-gray-900 mb-2">Description</h2>
               <p className="leading-relaxed whitespace-pre-line">{problem.description}</p>
             </div>
-            <div>
-              <h2 className="font-display font-bold text-gray-900 mb-2">Constraints</h2>
-              <ul className="space-y-1">
-                {problem.constraints.map((c) => (
-                  <li key={c} className="flex items-start gap-2">
-                    <span className="text-brand-red mt-0.5">•</span>
-                    <code className="font-code text-xs bg-[#FFF9F0] px-1.5 py-0.5 rounded">{c}</code>
-                  </li>
-                ))}
-              </ul>
-            </div>
+
             {problem.examples.map((ex, i) => (
               <div key={i}>
                 <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
@@ -176,11 +222,11 @@ export default function CodingPage() {
                   <div className="grid grid-cols-2 divide-x divide-[#F5CBA7]">
                     <div className="p-3">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Input</div>
-                      <code className="font-code text-xs text-gray-800">{ex.input}</code>
+                      <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.input}</code>
                     </div>
                     <div className="p-3">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Output</div>
-                      <code className="font-code text-xs text-gray-800">{ex.output}</code>
+                      <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.output}</code>
                     </div>
                   </div>
                   {ex.explanation && (
@@ -240,13 +286,42 @@ export default function CodingPage() {
 
           {/* TAB CONTENT: CURRENT */}
           {tab === "current" && (
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <textarea
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="flex-1 w-full p-5 font-code text-sm bg-[#FFF9F0] text-gray-800 resize-none focus:outline-none leading-relaxed border-none"
-                spellCheck={false}
-              />
+            <div className="flex-1 overflow-hidden flex flex-col bg-white">
+              <div className="flex-1 w-full pt-2 bg-white">
+                <Editor
+                  height="100%"
+                  width="100%"
+                  language={getMonacoLanguage(lang)}
+                  value={code}
+                  onChange={(value) => setCode(value || "")}
+                  onMount={handleEditorMount} // 🎯 ผูกท่อลงทะเบียนฐานคีย์เวิร์ดเข้า IDE
+                  loading={
+                    <div className="p-5 text-sm text-gray-400 italic">
+                      Initializing IDE Environment...
+                    </div>
+                  }
+                  options={{
+                    fontSize: 14,
+                    fontFamily: "var(--font-code), monospace",
+                    minimap: { enabled: false },
+                    scrollbar: { vertical: "visible", horizontal: "visible" },
+                    lineNumbers: "on",
+                    roundedSelection: false,
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 4,
+
+                    quickSuggestions: { other: true, comments: true, strings: true }, 
+                    suggestOnTriggerCharacters: true,  
+                    wordBasedSuggestions: "allDocuments", 
+                    acceptSuggestionOnEnter: "on",     
+                    tabCompletion: "on",                
+                    snippetSuggestions: "inline",      
+                    fixedOverflowWidgets: true, // 🎯 ป้องกันไม่ให้กล่องคำแนะนำจมหายไปใน Layout หลังบ้าน
+                  }}
+                />
+              </div>
+              
               {/* Output terminal */}
               <div className="border-t border-[#F5CBA7] bg-white">
                 <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F5CBA7]">
