@@ -45,6 +45,10 @@ next-env.d.ts
 # data
 data/
 data/users.json
+<<<<<<< HEAD
 =======
 /lib/generated/prisma
 >>>>>>> feature/infra
+=======
+/lib/generated/prisma
+>>>>>>> 3a65fb6 (setup some monaco dependencies)
