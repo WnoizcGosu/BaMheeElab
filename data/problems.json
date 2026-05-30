@@ -1,0 +1,416 @@
+[
+  {
+    "id": "1",
+    "title": "A+B Problem",
+    "description": "Given two integers A and B, calculate and output their sum.\n\n**Input:** Two integers A and B separated by a space (1 ≤ A, B ≤ 10^9)\n**Output:** A single integer — the sum of A and B.",
+    "category": "Programming",
+    "difficulty": "EASY",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "test-case-123",
+        "filename": "test.txt",
+        "inputContent": "1 2",
+        "outputContent": "3",
+        "isPublic": true
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2026-05-19T03:55:43.683Z"
+  },
+  {
+    "id": "2",
+    "title": "Fibonacci Number",
+    "description": "Given an integer N, find the N-th Fibonacci number. The Fibonacci sequence is defined as: F(0) = 0, F(1) = 1, F(n) = F(n-1) + F(n-2) for n ≥ 2.\n\n**Input:** A single integer N (0 ≤ N ≤ 45)\n**Output:** The N-th Fibonacci number.",
+    "category": "Programming",
+    "difficulty": "EASY",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-4",
+        "filename": "input_1.txt",
+        "inputContent": "0",
+        "outputContent": "0",
+        "isPublic": true
+      },
+      {
+        "id": "tc-5",
+        "filename": "input_2.txt",
+        "inputContent": "10",
+        "outputContent": "55",
+        "isPublic": true
+      },
+      {
+        "id": "tc-6",
+        "filename": "input_3.txt",
+        "inputContent": "45",
+        "outputContent": "1134903170",
+        "isPublic": false
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "3",
+    "title": "Palindrome Check",
+    "description": "Given a string S consisting of lowercase English letters, determine whether S is a palindrome (reads the same forwards and backwards).\n\n**Input:** A single string S (1 ≤ |S| ≤ 10^5)\n**Output:** Print `YES` if S is a palindrome, otherwise print `NO`.",
+    "category": "Programming",
+    "difficulty": "EASY",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-7",
+        "filename": "input_1.txt",
+        "inputContent": "racecar",
+        "outputContent": "YES",
+        "isPublic": true
+      },
+      {
+        "id": "tc-8",
+        "filename": "input_2.txt",
+        "inputContent": "hello",
+        "outputContent": "NO",
+        "isPublic": true
+      },
+      {
+        "id": "tc-9",
+        "filename": "input_3.txt",
+        "inputContent": "abacaba",
+        "outputContent": "YES",
+        "isPublic": false
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "4",
+    "title": "FizzBuzz",
+    "description": "Given an integer N, print numbers from 1 to N. But for multiples of 3, print `Fizz` instead of the number, for multiples of 5 print `Buzz`, and for multiples of both 3 and 5 print `FizzBuzz`.\n\n**Input:** A single integer N (1 ≤ N ≤ 1000)\n**Output:** N lines, each containing either the number, `Fizz`, `Buzz`, or `FizzBuzz`.",
+    "category": "Programming",
+    "difficulty": "EASY",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-10",
+        "filename": "input_1.txt",
+        "inputContent": "5",
+        "outputContent": "1\n2\nFizz\n4\nBuzz",
+        "isPublic": true
+      },
+      {
+        "id": "tc-11",
+        "filename": "input_2.txt",
+        "inputContent": "15",
+        "outputContent": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz",
+        "isPublic": true
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "5",
+    "title": "Two Sum",
+    "description": "Given an array of N integers and a target value T, find two distinct indices i and j such that arr[i] + arr[j] = T. Output the two indices (0-indexed) in ascending order.\n\n**Input:**\n- Line 1: Two integers N and T (2 ≤ N ≤ 10^5, -10^9 ≤ T ≤ 10^9)\n- Line 2: N space-separated integers\n\n**Output:** Two space-separated indices i and j (i < j). It is guaranteed that exactly one solution exists.",
+    "category": "Programming",
+    "difficulty": "MEDIUM",
+    "timeLimit": 2000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-12",
+        "filename": "input_1.txt",
+        "inputContent": "4 9\n2 7 11 15",
+        "outputContent": "0 1",
+        "isPublic": true
+      },
+      {
+        "id": "tc-13",
+        "filename": "input_2.txt",
+        "inputContent": "3 6\n3 2 4",
+        "outputContent": "1 2",
+        "isPublic": true
+      },
+      {
+        "id": "tc-14",
+        "filename": "input_3.txt",
+        "inputContent": "5 -1\n-3 4 3 90 1",
+        "outputContent": "0 2",
+        "isPublic": false
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "6",
+    "title": "Longest Common Subsequence",
+    "description": "Given two strings S1 and S2, find the length of their Longest Common Subsequence (LCS). A subsequence is a sequence that can be derived by deleting some (or no) elements without changing the order of remaining elements.\n\n**Input:**\n- Line 1: String S1 (1 ≤ |S1| ≤ 1000)\n- Line 2: String S2 (1 ≤ |S2| ≤ 1000)\n\n**Output:** A single integer — the length of the LCS.",
+    "category": "Programming",
+    "difficulty": "HARD",
+    "timeLimit": 2000,
+    "memoryLimit": 512,
+    "testCases": [
+      {
+        "id": "tc-15",
+        "filename": "input_1.txt",
+        "inputContent": "abcde\nace",
+        "outputContent": "3",
+        "isPublic": true
+      },
+      {
+        "id": "tc-16",
+        "filename": "input_2.txt",
+        "inputContent": "abc\nabc",
+        "outputContent": "3",
+        "isPublic": true
+      },
+      {
+        "id": "tc-17",
+        "filename": "input_3.txt",
+        "inputContent": "abc\ndef",
+        "outputContent": "0",
+        "isPublic": false
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "7",
+    "title": "Mean and Variance",
+    "description": "Given a list of N numbers, calculate the **population mean** and **population variance**.\n\n**Formulas:**\n- Mean: μ = (Σxᵢ) / N\n- Variance: σ² = Σ(xᵢ - μ)² / N\n\n**Input:**\n- Line 1: An integer N (1 ≤ N ≤ 10^5)\n- Line 2: N space-separated real numbers\n\n**Output:** Two values separated by a space — mean and variance, each rounded to 2 decimal places.",
+    "category": "Stat",
+    "difficulty": "EASY",
+    "timeLimit": 2000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-18",
+        "filename": "input_1.txt",
+        "inputContent": "5\n1 2 3 4 5",
+        "outputContent": "3.00 2.00",
+        "isPublic": true
+      },
+      {
+        "id": "tc-19",
+        "filename": "input_2.txt",
+        "inputContent": "4\n10 20 30 40",
+        "outputContent": "25.00 125.00",
+        "isPublic": true
+      },
+      {
+        "id": "tc-20",
+        "filename": "input_3.txt",
+        "inputContent": "3\n5.5 2.3 8.7",
+        "outputContent": "5.50 6.83",
+        "isPublic": false
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "8",
+    "title": "Standard Deviation & Z-Score",
+    "description": "Given a list of N numbers and a query value X, compute the **population standard deviation** and the **Z-score** of X.\n\n**Formulas:**\n- Standard Deviation: σ = √(Σ(xᵢ - μ)² / N)\n- Z-Score: z = (X - μ) / σ\n\n**Input:**\n- Line 1: Two values — integer N and real number X (1 ≤ N ≤ 10^5)\n- Line 2: N space-separated real numbers\n\n**Output:** Two values separated by a space — σ and z, each rounded to 4 decimal places.",
+    "category": "Stat",
+    "difficulty": "MEDIUM",
+    "timeLimit": 2000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-21",
+        "filename": "input_1.txt",
+        "inputContent": "5 7\n2 4 6 8 10",
+        "outputContent": "2.8284 0.3536",
+        "isPublic": true
+      },
+      {
+        "id": "tc-22",
+        "filename": "input_2.txt",
+        "inputContent": "4 100\n80 90 100 110",
+        "outputContent": "11.1803 0.4472",
+        "isPublic": true
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "9",
+    "title": "Simple Linear Regression",
+    "description": "Given N data points (x, y), compute the coefficients of the simple linear regression line y = a + bx using the **least squares method**.\n\n**Formulas:**\n- b = (NΣxᵢyᵢ - ΣxᵢΣyᵢ) / (NΣxᵢ² - (Σxᵢ)²)\n- a = ȳ - bx̄\n\n**Input:**\n- Line 1: An integer N (2 ≤ N ≤ 10^5)\n- Next N lines: Two space-separated real numbers xᵢ and yᵢ\n\n**Output:** Two values separated by a space — intercept (a) and slope (b), each rounded to 4 decimal places.",
+    "category": "Stat",
+    "difficulty": "HARD",
+    "timeLimit": 2000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-23",
+        "filename": "input_1.txt",
+        "inputContent": "5\n1 2\n2 4\n3 5\n4 4\n5 5",
+        "outputContent": "2.2000 0.6000",
+        "isPublic": true
+      },
+      {
+        "id": "tc-24",
+        "filename": "input_2.txt",
+        "inputContent": "3\n1 1\n2 2\n3 3",
+        "outputContent": "0.0000 1.0000",
+        "isPublic": true
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "10",
+    "title": "Test Problem Created",
+    "description": "This is a test problem",
+    "category": "Programming",
+    "difficulty": "MEDIUM",
+    "timeLimit": 2000,
+    "memoryLimit": 512,
+    "testCases": [],
+    "createdAt": "2026-05-13T12:27:53.894Z",
+    "updatedAt": "2026-05-13T12:27:53.894Z"
+  },
+  {
+    "id": "11",
+    "title": "a x b",
+    "description": "Given two integers a and b, calculate their product.\n\n**Input:** Two space-separated integers a and b.\n**Output:** Product of a and b.",
+    "category": "Programming",
+    "difficulty": "EASY",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-25",
+        "filename": "input_1.txt",
+        "inputContent": "15 2",
+        "outputContent": "30",
+        "isPublic": true,
+        "inputUrl": "http://127.0.0.1:9000/testcases/testcases/7397dfef-7e91-4465-b0f3-24fc9042ac88.txt"
+      }
+    ],
+    "createdAt": "2026-05-13T12:32:51.036Z",
+    "updatedAt": "2026-05-13T12:32:51.036Z"
+  },
+  {
+    "id": "12",
+    "title": "a / b",
+    "description": "Given two integers a and b, calculate the integer division (a / b).\n\n**Input:** Two space-separated integers a and b.\n**Output:** Result of a / b.",
+    "category": "Programming",
+    "difficulty": "EASY",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-26",
+        "filename": "input_1.txt",
+        "inputContent": "15 2",
+        "outputContent": "7",
+        "isPublic": true,
+        "inputUrl": "http://127.0.0.1:9000/testcases/testcases/61834021-c1ad-4ad4-89eb-49ca1844d8d2.txt"
+      }
+    ],
+    "createdAt": "2026-05-13T12:37:04.689Z",
+    "updatedAt": "2026-05-13T12:37:04.689Z"
+  },
+  {
+    "id": "13",
+    "title": "Differentiate sin(x) cos^2(x) from a to b",
+    "description": "Given an interval [a, b], evaluate the definite integral of sin(x) * cos^2(x) from a to b.\n\n**Input:** Two space-separated real numbers a and b.\n**Output:** The definite integral result rounded to 2 decimal places.",
+    "category": "Programming",
+    "difficulty": "God",
+    "timeLimit": 2500,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-27",
+        "filename": "input_1.txt",
+        "inputContent": "0 3.14159",
+        "outputContent": "0.67",
+        "isPublic": true,
+        "inputUrl": "http://127.0.0.1:9000/testcases/testcases/89f28207-06db-4e4d-970d-99988fe1c385.txt"
+      }
+    ],
+    "createdAt": "2026-05-15T07:49:29.709Z",
+    "updatedAt": "2026-05-16T07:57:45.794Z"
+  },
+  {
+    "title": "(a / b) + a",
+    "description": "(a / b) + a",
+    "category": "Programming",
+    "difficulty": "Easy",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-757fedac",
+        "filename": "input_1.txt",
+        "inputContent": "12 5 ",
+        "outputContent": "5",
+        "inputUrl": "http://127.0.0.1:9000/testcases/testcases/c0cf5a47-63a7-47d6-b7b4-e51c3df02bd3.txt",
+        "outputUrl": "http://127.0.0.1:9000/testcases/testcases/3b4893ea-47ed-4a68-8efa-13ed2c692e68.txt",
+        "isPublic": false
+      },
+      {
+        "id": "54605697-727c-413f-a9e4-759c39ed9c1c",
+        "filename": "testcase_1779161830829_0.txt",
+        "inputContent": "5 6 ",
+        "outputContent": "5.83",
+        "isPublic": false
+      }
+    ],
+    "id": "14",
+    "createdAt": "2026-05-16T12:26:47.779Z",
+    "updatedAt": "2026-05-19T03:37:21.441Z"
+  },
+  {
+    "title": "Area circle",
+    "description": "Calculate the area of ​​the circle.",
+    "category": "Programming",
+    "difficulty": "Easy",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [
+      {
+        "id": "tc-8325a5a0",
+        "filename": "input_2.txt",
+        "inputContent": "4",
+        "outputContent": "50.27",
+        "isPublic": false
+      },
+      {
+        "id": "8b128c7a-3954-4b67-843f-1e8cbe874354",
+        "filename": "testcase_1779162742357_1.txt",
+        "inputContent": "5.2",
+        "outputContent": "84.95",
+        "isPublic": false
+      }
+    ],
+    "id": "15",
+    "createdAt": "2026-05-16T12:31:01.534Z",
+    "updatedAt": "2026-05-19T03:52:50.348Z"
+  },
+  {
+    "title": "Test Problem",
+    "description": "Test Description",
+    "category": "Programming",
+    "difficulty": "Easy",
+    "timeLimit": 1000,
+    "memoryLimit": 256,
+    "testCases": [],
+    "id": "16",
+    "createdAt": "2026-05-19T03:55:43.712Z",
+    "updatedAt": "2026-05-19T03:55:43.712Z"
+  }
+]

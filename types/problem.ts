@@ -16,7 +16,8 @@ export interface Problem {
   id: string;
   title: string;
   description: string;
-  difficulty: Difficulty;
+  category: string;
+  difficulty: string;
   timeLimit: number;
   memoryLimit: number;
   testCases: TestCase[];

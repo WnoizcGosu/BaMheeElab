@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, Home } from "lucide-react";
+import { Home, ShieldAlert } from "lucide-react"; 
 import { cn } from "@/lib/utils";
-import { useSession } from "next-auth/react"; // 1. Imported useSession
+import { useSession } from "next-auth/react";
 
 interface AppNavbarProps {
   username?: string;
@@ -12,11 +12,14 @@ interface AppNavbarProps {
 
 export default function AppNavbar({ username = "User" }: AppNavbarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession(); // 2. Hooked up the session tracker
+  const { data: session } = useSession();
 
   // ── Dynamic Mappings ──
   const fullName = session?.user?.name || username;
   const userInitial = (session?.user?.name?.[0] || session?.user?.email?.[0] || username?.[0] || "U").toUpperCase();
+
+  // 🎯 ปรับจุดที่ 1: ใช้ (session?.user as any) เพื่อไม่ให้ TS บ่นเรื่องสิทธิ์ role
+  const isAdmin = session?.user?.role === "admin";
 
   return (
     <header className="sticky top-0 z-50 bg-brand-red shadow-md">
@@ -47,20 +50,36 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
               {label}
             </Link>
           ))}
+
+          {/* 🎯 ปุ่ม Admin Panel */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5",
+                // 🎯 ปรับจุดที่ 2: เติมเครื่องหมาย ? หลัง pathname เผื่อจังหวะที่ Next.js กำลังเรนเดอร์หน้าจอครั้งแรก
+                pathname?.startsWith("/admin")
+                  ? "bg-white text-brand-red"
+                  : "text-amber-200 hover:text-white hover:bg-white/10"
+              )}
+            >
+              <ShieldAlert className="w-4 h-4" />
+              Admin Panel
+            </Link>
+          )}
         </nav>
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {/* Display full name next to avatar on bigger screens if logged in */}
           {session?.user?.name && (
             <span className="text-xs text-white/80 font-medium hidden sm:inline-block max-w-[120px] truncate">
               {fullName}
+              {isAdmin && <span className="ml-1 text-[9px] bg-amber-400 text-brand-red px-1 rounded font-bold">Admin</span>}
             </span>
           )}
 
           <Link href="/profile">
             {session?.user?.image ? (
-              /* ── Option A: Real Google Profile Picture ── */
               <img
                 src={session.user.image}
                 alt={fullName}
@@ -68,7 +87,6 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              /* ── Option B: Fallback to Your Styled Tan Circle ── */
               <div className="w-9 h-9 rounded-full bg-[#F5CBA7] border-2 border-white/30 flex items-center justify-center text-brand-red font-bold text-sm hover:border-white/70 transition-all font-display cursor-pointer">
                 {userInitial}
               </div>
