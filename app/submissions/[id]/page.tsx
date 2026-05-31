@@ -51,7 +51,7 @@ export default async function SubmissionResultPage({
   };
 
   const isPassed = submission.status === "Passed";
-  const passedCount = submission.testCaseResults.filter((tc: typeof dbSub.test_case_results[number]) => tc.status === "Passed").length;
+  const passedCount = submission.testCaseResults.filter((tc) => tc.status === "Passed").length;
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 24px" }}>
@@ -180,7 +180,7 @@ export default async function SubmissionResultPage({
         </div>
 
         <div>
-          {submission.testCaseResults.map((tc: typeof submission.testCaseResults[number], index: number) => {
+          {submission.testCaseResults.map((tc, index: number) => {
             const tcPassed = tc.status === "Passed";
             return (
               <div

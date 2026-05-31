@@ -63,86 +63,53 @@ export default function CreateProblemPage() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "10px 14px",
-    border: "1px solid var(--border-light)",
-    borderRadius: "var(--radius-sm)",
-    background: "var(--bg-card)",
-    color: "var(--text-primary)",
-    fontSize: 14,
-    outline: "none",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: "block",
-    fontSize: 13,
-    fontWeight: 600,
-    color: "var(--text-secondary)",
-    marginBottom: 6,
-  };
-
-  const focusHandlers = {
-    onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      e.currentTarget.style.borderColor = "var(--accent-orange)";
-      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
-    },
-    onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      e.currentTarget.style.borderColor = "var(--border-light)";
-      e.currentTarget.style.boxShadow = "none";
-    },
-  };
-
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 20px" }}>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <h1 className="text-3xl font-bold text-gray-900">
         Create New Problem
       </h1>
 
-      <div className="card" style={{ overflow: "hidden" }}>
-        <form onSubmit={handleSubmit} style={{ padding: 24 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="space-y-4">
             <div>
-              <label style={labelStyle}>Title</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
               <input
                 required
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                style={inputStyle}
+                className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                 placeholder="e.g. A+B Problem"
-                {...focusHandlers}
               />
             </div>
 
             <div>
-              <label style={labelStyle}>Description</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
               <textarea
                 required
                 rows={5}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                style={{ ...inputStyle, resize: "vertical" }}
+                className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all resize-y"
                 placeholder="Describe the problem..."
-                {...focusHandlers}
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label style={labelStyle}>Category</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Category</label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  style={{ ...inputStyle, cursor: "pointer" }}
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all cursor-pointer"
                 >
                   <option value="Programming">Programming</option>
                   <option value="Stat">Statistical Programming</option>
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Difficulty</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Difficulty</label>
                 <select
                   value={formData.difficulty}
                   onChange={(e) =>
@@ -151,7 +118,7 @@ export default function CreateProblemPage() {
                       difficulty: e.target.value as "Easy" | "Medium" | "Hard" | "God",
                     })
                   }
-                  style={{ ...inputStyle, cursor: "pointer" }}
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all cursor-pointer"
                 >
                   <option value="Easy">EASY</option>
                   <option value="Medium">MEDIUM</option>
@@ -161,58 +128,56 @@ export default function CreateProblemPage() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label style={labelStyle}>Time Limit (ms)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Time Limit (ms)</label>
                 <input
                   required
                   type="number"
                   value={formData.timeLimit}
                   onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
-                  style={inputStyle}
-                  {...focusHandlers}
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                 />
               </div>
               <div>
-                <label style={labelStyle}>Memory Limit (MB)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Memory Limit (MB)</label>
                 <input
                   required
                   type="number"
                   value={formData.memoryLimit}
                   onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
-                  style={inputStyle}
-                  {...focusHandlers}
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                 />
               </div>
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
+          <div className="border-t border-red-100 pt-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
               Test Cases
             </h3>
             
             <div className="flex flex-col gap-4">
               {testCases.map((tc, idx) => (
-                <div key={tc.id} className="p-4 border border-gray-200 rounded-md bg-gray-50 relative">
-                  <div className="flex justify-between items-center mb-2">
+                <div key={tc.id} className="p-4 border border-red-100 rounded-lg bg-red-50/30 relative">
+                  <div className="flex justify-between items-center mb-3">
                       <div className="flex items-center gap-4">
-                        <span className="font-semibold text-sm">Test Case #{idx + 1}</span>
+                        <span className="font-bold text-sm text-brand-red">Test Case #{idx + 1}</span>
                         <label className="flex items-center gap-2 cursor-pointer text-sm">
                           <input
                             type="checkbox"
                             checked={tc.isPublic}
                             onChange={(e) => handleUpdateTestCaseField(tc.id, "isPublic", e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="rounded border-gray-300 text-brand-red focus:ring-brand-red"
                           />
-                          <span className="text-gray-600 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
+                          <span className="text-gray-700 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
                         </label>
                       </div>
                       {testCases.length > 1 && (
                         <button 
                           type="button"
                           onClick={() => handleRemoveTestCaseField(tc.id)} 
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-500 hover:text-red-700 transition-colors"
                           title="Remove Test Case"
                         >
                           <Trash2 size={16} />
@@ -223,7 +188,7 @@ export default function CreateProblemPage() {
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Input Data</label>
                       <textarea 
-                        className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        className="w-full border border-red-100 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/10 focus:border-brand-red font-mono bg-white"
                         rows={4}
                         value={tc.inputContent}
                         onChange={(e) => handleUpdateTestCaseField(tc.id, "inputContent", e.target.value)}
@@ -233,7 +198,7 @@ export default function CreateProblemPage() {
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Expected Output</label>
                       <textarea 
-                        className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        className="w-full border border-red-100 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/10 focus:border-brand-red font-mono bg-white"
                         rows={4}
                         value={tc.outputContent}
                         onChange={(e) => handleUpdateTestCaseField(tc.id, "outputContent", e.target.value)}
@@ -247,53 +212,30 @@ export default function CreateProblemPage() {
               <button 
                 type="button"
                 onClick={handleAddTestCaseField}
-                className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 self-start"
+                className="flex items-center gap-1 text-sm font-semibold text-brand-orange hover:text-brand-red transition-colors self-start mt-2"
               >
                 <Plus size={16} /> Add Another Test Case Field
               </button>
             </div>
           </div>
 
-          <div
-            className="flex justify-end gap-3"
-            style={{ borderTop: "1px solid var(--border-light)", marginTop: 24, paddingTop: 24 }}
-          >
+          <div className="border-t border-red-100 pt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={() => router.back()}
-              style={{
-                padding: "10px 22px",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                background: "transparent",
-                border: "1px solid var(--border-medium)",
-                borderRadius: "var(--radius-sm)",
-                cursor: "pointer",
-              }}
+              className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-red-100 rounded-lg hover:bg-red-50/50 hover:border-red-200 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2"
-              style={{
-                padding: "10px 22px",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "white",
-                background: "linear-gradient(135deg, #E8652B, #D4541E)",
-                border: "none",
-                borderRadius: "var(--radius-sm)",
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-                opacity: isSubmitting ? 0.7 : 1,
-              }}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-brand-red rounded-lg hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} />
-                  {isSubmitting ? "Saving..." : "Saving..."}
+                  <Loader2 size={16} className="animate-spin" />
+                  Saving...
                 </>
               ) : (
                 "Create Problem"

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, FileText } from "lucide-react";
+import { Plus, Search, FileText, Trash2 } from "lucide-react";
 import { normalizeDifficulty, formatDifficultyLabel } from "@/lib/testcases";
 
 interface SerializedProblem {
@@ -45,49 +45,26 @@ export default function ProblemsClient({
   }, [problems, query]);
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-3xl font-bold text-gray-900 m-0">
           {category === "Stat" ? "Statistical Programming Problems" : "Programming Problems"}
         </h1>
         <Link
           href="/admin/problems/create"
-          className="flex items-center gap-2"
-          style={{
-            background: "linear-gradient(135deg, #E8652B, #D4541E)",
-            color: "white",
-            padding: "10px 20px",
-            borderRadius: "var(--radius-md)",
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-            boxShadow: "0 4px 12px rgba(232, 101, 43, 0.3)",
-            transition: "all 0.2s",
-          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
         >
           <Plus size={18} />
           Create Problem
         </Link>
       </div>
 
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
         {/* Search bar */}
-        <div
-          style={{
-            padding: 16,
-            borderBottom: "1px solid var(--border-light)",
-            background: "var(--bg-card-alt)",
-          }}
-        >
-          <div className="relative" style={{ maxWidth: 380 }}>
+        <div className="p-4 border-b border-red-100 bg-red-50/30">
+          <div className="relative max-w-sm">
             <Search
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-light)",
-              }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               size={18}
             />
             <input
@@ -95,46 +72,23 @@ export default function ProblemsClient({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by title, ID, category, or difficulty..."
-              style={{
-                width: "100%",
-                padding: "10px 16px 10px 40px",
-                border: "1px solid var(--border-light)",
-                borderRadius: "var(--radius-sm)",
-                background: "var(--bg-card)",
-                color: "var(--text-primary)",
-                fontSize: 14,
-                outline: "none",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "var(--accent-orange)";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(232, 101, 43, 0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-light)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              className="w-full pl-10 pr-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", textAlign: "left", borderCollapse: "collapse" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr
-                style={{
-                  background: "var(--bg-card-alt)",
-                  borderBottom: "1px solid var(--border-light)",
-                }}
-              >
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>ID</th>
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>Title</th>
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>Category</th>
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>Difficulty</th>
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>Limits</th>
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>Test Cases</th>
-                <th style={{ padding: "14px 20px", fontWeight: 600, fontSize: 13, color: "var(--text-muted)" }}>Actions</th>
+              <tr className="bg-red-50/50 border-b border-red-100 text-brand-red">
+                <th className="px-5 py-3.5 font-semibold text-sm">ID</th>
+                <th className="px-5 py-3.5 font-semibold text-sm">Title</th>
+                <th className="px-5 py-3.5 font-semibold text-sm">Category</th>
+                <th className="px-5 py-3.5 font-semibold text-sm">Difficulty</th>
+                <th className="px-5 py-3.5 font-semibold text-sm">Limits</th>
+                <th className="px-5 py-3.5 font-semibold text-sm">Test Cases</th>
+                <th className="px-5 py-3.5 font-semibold text-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -142,11 +96,7 @@ export default function ProblemsClient({
                 <tr>
                   <td
                     colSpan={7}
-                    style={{
-                      padding: "48px 20px",
-                      textAlign: "center",
-                      color: "var(--text-muted)",
-                    }}
+                    className="px-5 py-12 text-center text-gray-500 font-medium"
                   >
                     {query.trim()
                       ? `No problems match "${query.trim()}".`
@@ -159,38 +109,23 @@ export default function ProblemsClient({
                   return (
                   <tr
                     key={problem.id}
-                    style={{
-                      borderBottom: "1px solid var(--border-light)",
-                      transition: "background 0.15s",
-                      cursor: "default",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "var(--bg-card-alt)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                    }}
+                    className="border-b border-gray-100 transition-colors hover:bg-red-50/30"
                   >
-                    <td style={{ padding: "14px 20px", fontFamily: "monospace", fontSize: 13, color: "var(--text-muted)" }}>
+                    <td className="px-5 py-3.5 font-mono text-sm text-gray-500">
                       {problem.id}
                     </td>
-                    <td style={{ padding: "14px 20px", fontWeight: 600, color: "var(--text-primary)" }}>
+                    <td className="px-5 py-3.5 font-semibold text-gray-900">
                       <Link
                         href={`/admin/problems/${problem.id}`}
-                        style={{
-                          color: "var(--accent-orange)",
-                          textDecoration: "none",
-                          transition: "color 0.15s",
-                        }}
-                        className="hover:underline"
+                        className="text-brand-orange hover:underline transition-colors"
                       >
                         {problem.title}
                       </Link>
                     </td>
-                    <td style={{ padding: "14px 20px", fontSize: 13, color: "var(--text-secondary)" }}>
+                    <td className="px-5 py-3.5 text-sm text-gray-600 font-medium">
                       {problem.category || "General"}
                     </td>
-                    <td style={{ padding: "14px 20px" }}>
+                    <td className="px-5 py-3.5">
                       <span
                         className={`badge ${
                           difficulty === "Easy"
@@ -205,29 +140,20 @@ export default function ProblemsClient({
                         {formatDifficultyLabel(problem.difficulty)}
                       </span>
                     </td>
-                    <td style={{ padding: "14px 20px", fontSize: 13, color: "var(--text-secondary)" }}>
+                    <td className="px-5 py-3.5 text-sm text-gray-600 font-medium">
                       {problem.timeLimit}ms / {problem.memoryLimit}MB
                     </td>
-                    <td style={{ padding: "14px 20px" }}>
-                      <div
-                        className="flex items-center gap-1.5"
-                        style={{ fontSize: 13, color: "var(--text-secondary)" }}
-                      >
-                        <FileText size={15} style={{ color: "var(--text-light)" }} />
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5 text-sm text-gray-600 font-medium">
+                        <FileText size={15} className="text-gray-400" />
                         {problem.testCases?.length || 0}
                       </div>
                     </td>
-                    <td style={{ padding: "14px 20px" }}>
-                      <div className="flex items-center gap-3">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-4">
                         <Link
                           href={`/admin/problems/${problem.id}`}
-                          style={{
-                            color: "var(--accent-orange)",
-                            fontSize: 13,
-                            fontWeight: 600,
-                            textDecoration: "none",
-                          }}
-                          className="hover:underline"
+                          className="text-brand-orange text-sm font-semibold hover:underline"
                         >
                           View Details
                         </Link>
@@ -250,7 +176,7 @@ export default function ProblemsClient({
                           className="text-red-500 hover:text-red-700 transition-colors"
                           title="Delete Problem"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>

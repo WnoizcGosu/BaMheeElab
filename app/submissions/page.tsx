@@ -51,9 +51,9 @@ export default async function SubmissionsIndexPage() {
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {submissions.map((sub: typeof dbSubmissions[number]) => {
+        {submissions.map((sub) => {
           const passed = sub.status === "Passed";
-          const passedCount = sub.testCaseResults.filter((tc: typeof sub.test_case_results[number]) => tc.status === "Passed").length;
+          const passedCount = sub.testCaseResults.filter((tc) => tc.status === "Passed").length;
           const total = sub.testCaseResults.length;
 
           return (

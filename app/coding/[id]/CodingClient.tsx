@@ -196,13 +196,13 @@ export default function CodingClient({ problem }: { problem: ProblemData }) {
                 <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
                 <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">
                   <div className="grid grid-cols-2 divide-x divide-[#F5CBA7]">
-                    <div className="p-3">
+                    <div className="p-3 min-w-0 overflow-x-auto">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Input</div>
-                      <code className="font-code text-xs text-gray-800">{ex.input}</code>
+                      <pre className="font-code text-xs text-gray-800 whitespace-pre">{ex.input}</pre>
                     </div>
-                    <div className="p-3">
+                    <div className="p-3 min-w-0 overflow-x-auto">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Output</div>
-                      <code className="font-code text-xs text-gray-800">{ex.output}</code>
+                      <pre className="font-code text-xs text-gray-800 whitespace-pre">{ex.output}</pre>
                     </div>
                   </div>
                   <div className="px-3 py-2 border-t border-[#F5CBA7]">

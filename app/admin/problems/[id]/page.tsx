@@ -30,7 +30,6 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
     memoryLimit: p.memory_limit,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
-    // 🎯 แก้ไขจุดนี้: ใส่ Type ให้ตัวแปร tc โดยดึงจากอาเรย์ในตัวแปร p ตรงๆ
     testCases: p.test_cases.map((tc: typeof p.test_cases[number]) => ({
       id: tc.id,
       filename: tc.filename,
@@ -57,21 +56,21 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
       <div className="flex items-center gap-4">
         <Link
           href="/admin/problems"
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
+          className="p-2 hover:bg-red-50 hover:text-brand-red rounded-lg transition-colors text-gray-600"
         >
           <ArrowLeft size={20} />
         </Link>
         <h1 className="text-3xl font-bold text-gray-900">Problem Details</h1>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
+        <div className="p-6 border-b border-red-100">
           <div className="flex justify-between items-start">
             <div>
               <div className="text-sm font-mono text-gray-500 mb-1">ID: {problem.id}</div>
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-bold text-gray-900">{problem.title}</h2>
-                <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${badgeClass}`}>
+                <span className={`px-2.5 py-1 text-xs font-bold tracking-wide rounded-full ${badgeClass}`}>
                   {formatDifficultyLabel(problem.difficulty)}
                 </span>
               </div>
@@ -80,7 +79,7 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
               <DeleteProblemButton problemId={problem.id} />
               <Link
                 href={`/admin/problems/${problem.id}/edit`}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+                className="bg-brand-red hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center shadow-sm"
               >
                 Edit Problem
               </Link>
@@ -88,24 +87,24 @@ export default async function ProblemDetailsPage({ params }: { params: Promise<{
           </div>
 
           <div className="flex gap-6 mt-6">
-            <div className="flex items-center gap-2 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
-              <Clock size={16} />
-              <span className="text-sm font-medium">{problem.timeLimit} ms</span>
+            <div className="flex items-center gap-2 text-gray-700 bg-red-50/50 px-3 py-1.5 rounded-md border border-red-100">
+              <Clock size={16} className="text-brand-orange" />
+              <span className="text-sm font-semibold">{problem.timeLimit} ms</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
-              <Memory size={16} />
-              <span className="text-sm font-medium">{problem.memoryLimit} MB</span>
+            <div className="flex items-center gap-2 text-gray-700 bg-red-50/50 px-3 py-1.5 rounded-md border border-red-100">
+              <Memory size={16} className="text-brand-orange" />
+              <span className="text-sm font-semibold">{problem.memoryLimit} MB</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
-              <FileText size={16} />
-              <span className="text-sm font-medium">{problem.testCases?.length || 0} Test Cases</span>
+            <div className="flex items-center gap-2 text-gray-700 bg-red-50/50 px-3 py-1.5 rounded-md border border-red-100">
+              <FileText size={16} className="text-brand-orange" />
+              <span className="text-sm font-semibold">{problem.testCases?.length || 0} Test Cases</span>
             </div>
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Description</h3>
-          <div className="prose max-w-none text-gray-700 whitespace-pre-wrap">
+        <div className="p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Description</h3>
+          <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed">
             {problem.description || "No description provided."}
           </div>
         </div>
