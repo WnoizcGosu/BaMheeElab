@@ -34,7 +34,7 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
 
         {/* Nav links */}
         <nav className="hidden md:flex items-center gap-1">
-          {[
+          {!pathname?.startsWith("/admin") && [
             { label: "Problems", href: "/problems" },
           ].map(({ label, href }) => (
             <Link
