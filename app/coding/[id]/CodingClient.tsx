@@ -42,6 +42,7 @@ type RunStatus = "idle" | "running" | "passed" | "failed";
 interface Submission {
   id: number;
   lang: string;
+}
 interface TestCaseResult {
   testCaseId: string;
   status: "Passed" | "Failed";
@@ -360,7 +361,7 @@ export default function CodingClient({ problem }: { problem: any }) {
               <Badge variant={problem.difficulty.toLowerCase() as "easy" | "medium" | "hard"}>
                 {problem.difficulty}
               </Badge>
-              {problem.tags.map((t) => (
+              {problem.tags.map((t: string) => (
                 <Badge key={t} variant="topic">{t}</Badge>
               ))}
   <span className="text-xs text-gray-400 ml-auto">{problem.completion}% acceptance</span>
@@ -384,7 +385,7 @@ export default function CodingClient({ problem }: { problem: any }) {
     </ul>
   </div>
   {
-    problem.examples.map((ex, i) => (
+    problem.examples.map((ex: Example, i: number) => (
       <div key={i}>
         <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
         <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">

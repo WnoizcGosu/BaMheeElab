@@ -11,8 +11,19 @@ export async function POST(request: NextRequest) {
     // 1. สร้าง ID ล่วงหน้า เพื่อนำไปใช้เป็นชื่อโฟลเดอร์ใน S3
     const problemId = uuidv4(); 
     
-    // 🚨 อย่าลืมแก้: ใส่ UUID ของ User จากฐานข้อมูลของคุณลงไปชั่วคราวก่อน (เพราะ DB บังคับ)
-    const adminUserId = "7393645e-cb6e-46d3-84fb-fa3d9398e237"; 
+    // ค้นหา User คนแรกในระบบ หรือถ้ายังไม่มีให้สร้างจำลองขึ้นมาเพื่อใช้สำหรับอ้างอิง foreign key
+    let adminUser = await prisma.user.findFirst();
+    if (!adminUser) {
+      adminUser = await prisma.user.create({
+        data: {
+          id: "7393645e-cb6e-46d3-84fb-fa3d9398e237",
+          email: "admin@example.com",
+          name: "Admin User",
+          role: "ADMIN"
+        }
+      });
+    }
+    const adminUserId = adminUser.id;
 
     // 2. เตรียมข้อมูล Test Cases และจัดการอัปโหลดขึ้น S3
     const preparedTestCases = [];

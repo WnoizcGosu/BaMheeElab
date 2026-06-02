@@ -54,7 +54,7 @@ export default function CreateProblemPage() {
           description: formData.description,
           category: formData.category,
           difficulty: formData.difficulty,
-          
+
           // 📊 แมปฟิลด์ข้อจำกัดเวลาและความจำให้ตรงโมเดล Problem
           time_limit: formData.time_limit,
           timeLimit: formData.time_limit,     // ส่งเผื่อสำหรับ API ขาแปลง CamelCase
@@ -67,7 +67,7 @@ export default function CreateProblemPage() {
             is_public: tc.isPublic,           // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
             input_content: tc.inputContent,   // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
             output_content: tc.outputContent, // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
-            
+
             // ส่งสไตล์ CamelCase ควบคู่เพื่อความปลอดภัยชั้นเน็ตเวิร์ก
             isPublic: tc.isPublic,
             inputContent: tc.inputContent,
@@ -182,38 +182,38 @@ export default function CreateProblemPage() {
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Test Cases
             </h3>
-            
+
             <div className="flex flex-col gap-4">
               {testCases.map((tc, idx) => (
                 <div key={tc.id} className="p-4 border border-red-100 rounded-lg bg-red-50/30 relative">
                   <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold text-sm text-brand-red">Test Case #{idx + 1}</span>
-                        <label className="flex items-center gap-2 cursor-pointer text-sm">
-                          <input
-                            type="checkbox"
-                            checked={tc.isPublic}
-                            onChange={(e) => handleUpdateTestCaseField(tc.id, "isPublic", e.target.checked)}
-                            className="rounded border-gray-300 text-brand-red focus:ring-brand-red"
-                          />
-                          <span className="text-gray-700 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
-                        </label>
-                      </div>
-                      {testCases.length > 1 && (
-                        <button 
-                          type="button"
-                          onClick={() => handleRemoveTestCaseField(tc.id)} 
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                          title="Remove Test Case"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-sm text-brand-red">Test Case #{idx + 1}</span>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={tc.isPublic}
+                          onChange={(e) => handleUpdateTestCaseField(tc.id, "isPublic", e.target.checked)}
+                          className="rounded border-gray-300 text-brand-red focus:ring-brand-red"
+                        />
+                        <span className="text-gray-700 font-medium">แสดงเป็นตัวอย่างในโจทย์ (Public)</span>
+                      </label>
+                    </div>
+                    {testCases.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTestCaseField(tc.id)}
+                        className="text-red-500 hover:text-red-700 transition-colors"
+                        title="Remove Test Case"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Input Data</label>
-                      <textarea 
+                      <textarea
                         className="w-full border border-red-100 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/10 focus:border-brand-red font-mono bg-white"
                         rows={4}
                         value={tc.inputContent}
@@ -223,7 +223,7 @@ export default function CreateProblemPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Expected Output</label>
-                      <textarea 
+                      <textarea
                         className="w-full border border-red-100 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/10 focus:border-brand-red font-mono bg-white"
                         rows={4}
                         value={tc.outputContent}
@@ -234,8 +234,8 @@ export default function CreateProblemPage() {
                   </div>
                 </div>
               ))}
-              
-              <button 
+
+              <button
                 type="button"
                 onClick={handleAddTestCaseField}
                 className="flex items-center gap-1 text-sm font-semibold text-brand-orange hover:text-brand-red transition-colors self-start mt-2"
