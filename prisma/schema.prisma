@@ -50,7 +50,7 @@ model Problem {
   time_limit   Int
   memory_limit Int
   created_by   String
-  created_at   DateTime @default(now())
+  created_at   DateTime  @default(now())
   updated_at   DateTime @updatedAt
 
   creator             User               @relation(fields: [created_by], references: [id])

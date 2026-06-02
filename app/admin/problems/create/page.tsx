@@ -14,8 +14,8 @@ export default function CreateProblemPage() {
     description: "",
     category: "Programming",
     difficulty: "Easy" as "Easy" | "Medium" | "Hard" | "God",
-    timeLimit: 1000,
-    memoryLimit: 256,
+    time_limit: 1000,
+    memory_limit: 256,
   });
 
   const [testCases, setTestCases] = useState<{ id: string; inputContent: string; outputContent: string; isPublic: boolean }[]>([
@@ -40,13 +40,39 @@ export default function CreateProblemPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const validTestCases = testCases.filter(tc => tc.inputContent.trim() !== "" && tc.outputContent.trim() !== "");
+      // กรองเฉพาะเคสที่มีข้อมูลไม่เป็นค่าว่าง
+      const validTestCases = testCases.filter(
+        tc => tc.inputContent.trim() !== "" && tc.outputContent.trim() !== ""
+      );
+
       const res = await fetch("/api/admin/problems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // 🎯 ปรับปรุงก้อนข้อมูลจัดส่ง (Payload) ให้ตรงกันกับโครงสร้างของ Schema Prisma
         body: JSON.stringify({
-          ...formData,
-          testCases: validTestCases,
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          difficulty: formData.difficulty,
+          
+          // 📊 แมปฟิลด์ข้อจำกัดเวลาและความจำให้ตรงโมเดล Problem
+          time_limit: formData.time_limit,
+          timeLimit: formData.time_limit,     // ส่งเผื่อสำหรับ API ขาแปลง CamelCase
+          memory_limit: formData.memory_limit,
+          memoryLimit: formData.memory_limit, // ส่งเผื่อสำหรับ API ขาแปลง CamelCase
+
+          // 📊 แปลงโครงสร้างอาเรย์ด้านในให้ตรงโมเดล TestCase ใน schema.prisma
+          testCases: validTestCases.map((tc, index) => ({
+            order_index: index,               // ลำดับอินเด็กซ์ตามโครงสร้างตาราง
+            is_public: tc.isPublic,           // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
+            input_content: tc.inputContent,   // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
+            output_content: tc.outputContent, // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
+            
+            // ส่งสไตล์ CamelCase ควบคู่เพื่อความปลอดภัยชั้นเน็ตเวิร์ก
+            isPublic: tc.isPublic,
+            inputContent: tc.inputContent,
+            outputContent: tc.outputContent,
+          })),
         }),
       });
 
@@ -167,8 +193,8 @@ export default function CreateProblemPage() {
                 <input
                   required
                   type="number"
-                  value={formData.timeLimit}
-                  onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
+                  value={formData.time_limit}
+                  onChange={(e) => setFormData({ ...formData, time_limit: parseInt(e.target.value) })}
                   style={inputStyle}
                   {...focusHandlers}
                 />
@@ -178,8 +204,8 @@ export default function CreateProblemPage() {
                 <input
                   required
                   type="number"
-                  value={formData.memoryLimit}
-                  onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
+                  value={formData.memory_limit}
+                  onChange={(e) => setFormData({ ...formData, memory_limit: parseInt(e.target.value) })}
                   style={inputStyle}
                   {...focusHandlers}
                 />
@@ -293,7 +319,7 @@ export default function CreateProblemPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} />
-                  {isSubmitting ? "Saving..." : "Saving..."}
+                  <span>Saving...</span>
                 </>
               ) : (
                 "Create Problem"
