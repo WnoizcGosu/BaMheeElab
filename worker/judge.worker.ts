@@ -23,7 +23,7 @@ import type {
   SubmissionStatus,
 } from "@/types/submission";
 import { JUDGE_QUEUE_NAME } from "@/lib/queue";
-import { createBlockingConnection, redis, LEADERBOARD_KEY } from "@/lib/redis";
+import { REDIS_URL, redis, LEADERBOARD_KEY } from "@/lib/redis";
 import {
   LANGUAGE_ID,
   JUDGE0_CALLBACK_URL,
@@ -226,7 +226,7 @@ async function processJob(job: Job<JudgeJobPayload>) {
 }
 
 const worker = new Worker<JudgeJobPayload>(JUDGE_QUEUE_NAME, processJob, {
-  connection: createBlockingConnection(),
+  connection: { url: REDIS_URL },
   concurrency: Number(process.env.JUDGE_WORKER_CONCURRENCY || 4),
 });
 

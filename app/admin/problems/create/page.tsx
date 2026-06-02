@@ -14,8 +14,8 @@ export default function CreateProblemPage() {
     description: string;
     category: string;
     difficulty: "Easy" | "Medium" | "Hard" | "God";
-    timeLimit: number;
-    memoryLimit: number;
+    time_limit: number;
+    memory_limit: number;
   }>({
     title: "",
     description: "",
@@ -79,7 +79,8 @@ export default function CreateProblemPage() {
         router.push("/admin/problems");
         router.refresh();
       } else {
-        console.error("Failed to save problem");
+        const errBody = await res.json().catch(() => ({}));
+        console.error("Failed to save problem", res.status, errBody);
       }
     } catch (error) {
       console.error(error);

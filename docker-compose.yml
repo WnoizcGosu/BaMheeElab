@@ -49,7 +49,6 @@ services:
     ports:
       - "2358:2358"
     privileged: true
-    cgroup_parent: docker.slice
     restart: unless-stopped
     depends_on:
       - judge0-db
@@ -62,7 +61,6 @@ services:
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     privileged: true
-    cgroup_parent: docker.slice
     restart: unless-stopped
     depends_on:
       - judge0-db

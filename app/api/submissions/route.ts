@@ -11,7 +11,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { judgeQueue } from "@/lib/queue";
-import { createSubmission } from "@/lib/db/judge-store";
+import { createSubmission, getSubmissionsByProblem } from "@/lib/db/judge-store";
 import type {
   SubmitRequest,
   SubmitResponse,
@@ -21,6 +21,15 @@ import type {
 
 const LANGS: ReadonlySet<Language> = new Set(["PYTHON", "C", "CPP"]);
 const TEST_USER_ID = "user-test";
+
+export async function GET(req: NextRequest) {
+  const problemId = req.nextUrl.searchParams.get("problemId");
+  if (!problemId) {
+    return NextResponse.json({ error: "problemId is required" }, { status: 400 });
+  }
+  const submissions = await getSubmissionsByProblem(problemId, TEST_USER_ID);
+  return NextResponse.json(submissions);
+}
 
 export async function POST(req: NextRequest) {
   let body: SubmitRequest;

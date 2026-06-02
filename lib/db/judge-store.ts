@@ -170,6 +170,41 @@ export async function getSubmission(
   };
 }
 
+export async function getSubmissionsByProblem(
+  problemId: string,
+  userId: string
+): Promise<SubmissionDTO[]> {
+  const rows = await prisma.submission.findMany({
+    where: { problem_id: problemId, user_id: userId },
+    include: {
+      test_case_results: { include: { test_case: true } },
+    },
+    orderBy: { submitted_at: "desc" },
+  });
+  return rows.map((s) => ({
+    id: s.id,
+    userId: s.user_id,
+    problemId: s.problem_id,
+    language: s.language as Language,
+    sourceCode: s.source_code,
+    status: s.status as SubmissionStatus,
+    score: s.score,
+    runtime: s.runtime,
+    memory: s.memory,
+    resultUrl: s.result_url,
+    submittedAt: s.submitted_at.toISOString(),
+    results: s.test_case_results.map((r) => ({
+      testCaseId: r.test_case_id,
+      passed: r.passed,
+      runtime: r.runtime,
+      memory: r.memory,
+      actualOutput: r.actual_output,
+      expectedOutput: r.test_case.is_public ? r.test_case.output_content : null,
+      errorMessage: r.error_message,
+    })),
+  }));
+}
+
 export async function setSubmissionStatus(
   submissionId: string,
   status: SubmissionStatus

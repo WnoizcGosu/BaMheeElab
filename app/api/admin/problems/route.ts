@@ -8,11 +8,14 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
     
-    // 1. สร้าง ID ล่วงหน้า เพื่อนำไปใช้เป็นชื่อโฟลเดอร์ใน S3
-    const problemId = uuidv4(); 
-    
-    // 🚨 อย่าลืมแก้: ใส่ UUID ของ User จากฐานข้อมูลของคุณลงไปชั่วคราวก่อน (เพราะ DB บังคับ)
-    const adminUserId = "7393645e-cb6e-46d3-84fb-fa3d9398e237"; 
+    const problemId = uuidv4();
+
+    // หา ADMIN user คนแรกที่มีใน DB (ยังไม่มี session auth)
+    const adminUser = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+    if (!adminUser) {
+      return NextResponse.json({ error: "No admin user found in DB" }, { status: 500 });
+    }
+    const adminUserId = adminUser.id; 
 
     const preparedTestCases = [];
     if (data.testCases && data.testCases.length > 0) {
