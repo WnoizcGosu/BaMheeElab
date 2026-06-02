@@ -46,5 +46,4 @@ next-env.d.ts
 data/
 data/users.json
 # local config / scratch
-judge0.conf
 image.png
