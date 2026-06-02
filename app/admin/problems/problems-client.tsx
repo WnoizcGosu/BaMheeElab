@@ -10,7 +10,7 @@ interface SerializedProblem {
   title: string;
   description: string;
   category: string;
-  difficulty: string;
+  difficulty: "Easy" | "Medium" | "Hard" | "God";
   timeLimit: number;
   memoryLimit: number;
   testCases: { id: string; filename: string }[];

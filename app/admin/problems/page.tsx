@@ -16,7 +16,7 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
       title: p.title,
       description: p.description,
       category: p.category,
-      difficulty: p.difficulty,
+      difficulty: p.difficulty as "Easy" | "Medium" | "Hard" | "God",
       timeLimit: p.time_limit,
       memoryLimit: p.memory_limit,
       createdAt: p.created_at,

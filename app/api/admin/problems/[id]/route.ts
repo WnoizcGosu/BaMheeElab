@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/db/prisma";
 import { s3Client, BUCKET_NAME } from "@/lib/s3";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -13,8 +14,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Problem not found." }, { status: 404 });
     }
 
-    // Update problem fields if provided
-    if (data.title || data.description || data.timeLimit || data.memoryLimit || data.category || data.difficulty) {
+    const time_limit = data.time_limit !== undefined ? Number(data.time_limit) : (data.timeLimit !== undefined ? Number(data.timeLimit) : undefined);
+    const memory_limit = data.memory_limit !== undefined ? Number(data.memory_limit) : (data.memoryLimit !== undefined ? Number(data.memoryLimit) : undefined);
+
+    if (data.title || data.description || time_limit !== undefined || memory_limit !== undefined || data.category || data.difficulty) {
       await prisma.problem.update({
         where: { id },
         data: {
@@ -22,54 +25,66 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           description: data.description,
           category: data.category,
           difficulty: data.difficulty,
-          time_limit: data.timeLimit ? Number(data.timeLimit) : undefined,
-          memory_limit: data.memoryLimit ? Number(data.memoryLimit) : undefined,
+          time_limit: time_limit,
+          memory_limit: memory_limit,
         }
       });
     }
 
     if (data.testCases) {
-      // First, delete existing test cases for simplicity (or update them)
       await prisma.testCase.deleteMany({
         where: { problem_id: id }
       });
 
-      const createPromises = data.testCases.map(async (tc: { id: string, filename?: string, inputContent?: string, outputContent?: string, isPublic?: boolean }, index: number) => {
+      const createPromises = data.testCases.map(async (tc: { id?: string, filename?: string, inputContent?: string, outputContent?: string, input_content?: string, output_content?: string, isPublic?: boolean, is_public?: boolean }, index: number) => {
+        const tcId = tc.id || crypto.randomUUID();
+        const inputContent = tc.input_content || tc.inputContent || "";
+        const outputContent = tc.output_content || tc.outputContent || "";
+        const isPublic = tc.is_public ?? tc.isPublic ?? false;
+
         let inputUrl = null;
         let outputUrl = null;
 
-        if (tc.inputContent) {
-          const inputKey = `problems/${id}/testcases/${tc.id}/input.txt`;
-          await s3Client.send(new PutObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: inputKey,
-            Body: tc.inputContent,
-            ContentType: "text/plain"
-          }));
-          inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
+        try {
+          if (inputContent) {
+            const inputKey = `problems/${id}/testcases/${tcId}/input.txt`;
+            await s3Client.send(new PutObjectCommand({
+              Bucket: BUCKET_NAME,
+              Key: inputKey,
+              Body: inputContent,
+              ContentType: "text/plain"
+            }));
+            inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
+          }
+        } catch (s3InputError) {
+          console.warn(`[S3_PUT_WARN] input upload failed:`, s3InputError);
         }
 
-        if (tc.outputContent) {
-          const outputKey = `problems/${id}/testcases/${tc.id}/output.txt`;
-          await s3Client.send(new PutObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: outputKey,
-            Body: tc.outputContent,
-            ContentType: "text/plain"
-          }));
-          outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
+        try {
+          if (outputContent) {
+            const outputKey = `problems/${id}/testcases/${tcId}/output.txt`;
+            await s3Client.send(new PutObjectCommand({
+              Bucket: BUCKET_NAME,
+              Key: outputKey,
+              Body: outputContent,
+              ContentType: "text/plain"
+            }));
+            outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
+          }
+        } catch (s3OutputError) {
+          console.warn(`[S3_PUT_WARN] output upload failed:`, s3OutputError);
         }
 
         return prisma.testCase.create({
           data: {
-            id: tc.id,
+            id: tcId,
             problem_id: id,
-            filename: tc.filename || `testcase_${index}.txt`,
+            filename: tc.filename || `testcase_${index + 1}.txt`,
             input_url: inputUrl,
             output_url: outputUrl,
-            input_content: tc.inputContent,
-            output_content: tc.outputContent,
-            is_public: tc.isPublic || false,
+            input_content: inputContent,
+            output_content: outputContent,
+            is_public: isPublic,
             order_index: index,
           }
         });
@@ -97,20 +112,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     const { id } = await params;
     
-    // Ensure the problem exists
     const existingProblem = await prisma.problem.findUnique({ where: { id } });
     if (!existingProblem) {
       return NextResponse.json({ error: "Problem not found." }, { status: 404 });
     }
 
-    // Delete in order to satisfy foreign key constraints:
-    // 1. TestCaseResult
-    // 2. LeaderboardEntry
-    // 3. Submission
-    // 4. TestCase
-    // 5. Problem
-    
-    // First find all submissions for this problem to delete their test case results
     const submissions = await prisma.submission.findMany({
       where: { problem_id: id },
       select: { id: true }

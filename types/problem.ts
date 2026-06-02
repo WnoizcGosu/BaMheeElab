@@ -17,7 +17,7 @@ export interface Problem {
   title: string;
   description: string;
   category: string;
-  difficulty: string;
+  difficulty: "Easy" | "Medium" | "Hard" | "God";
   timeLimit: number;
   memoryLimit: number;
   testCases: TestCase[];
