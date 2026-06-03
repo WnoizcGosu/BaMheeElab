@@ -68,8 +68,9 @@ export default function RegisterPage() {
 
       // 3. Success -> Route user cleanly to login screen so they can test credentials
       router.push("/login");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Something went wrong.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
