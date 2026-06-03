@@ -42,6 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # data
 data/
 data/users.json
@@ -52,3 +53,9 @@ data/users.json
 =======
 /lib/generated/prisma
 >>>>>>> 3a65fb6 (setup some monaco dependencies)
+=======
+/lib/generated/prisma
+# data
+data/
+data/users.json
+>>>>>>> develop

@@ -15,17 +15,25 @@ export function getUsersCollection() {
 // ── FUTURE PROOF FUNCTIONS ──
 // When you get a real DB, you will only rewrite the internals of these two functions!
 
+interface User {
+  username: string;
+  email: string;
+  password: string;
+  id?: string;
+  createdAt?: string;
+}
+
 export async function findUserByUsername(username: string) {
   const users = getUsersCollection();
-  return users.find((u: any) => u.username === username.toLowerCase()) || null;
+  return users.find((u: User) => u.username === username.toLowerCase()) || null;
 }
 
 export async function findUserByEmail(email: string) {
   const users = getUsersCollection();
-  return users.find((u: any) => u.email === email.toLowerCase()) || null;
+  return users.find((u: User) => u.email === email.toLowerCase()) || null;
 }
 
-export async function createUser(userData: any) {
+export async function createUser(userData: Omit<User, 'id' | 'createdAt'>) {
   const users = getUsersCollection();
 
   // Securely hash the password before saving to the file

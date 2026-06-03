@@ -1,41 +1,12 @@
-/* @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-} */
-
-
-@import url('https://fonts.googleapis.com/css2?family=Mitr:wght@200;300;400;500;600;700&family=SN+Pro:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Mitr:wght@200;300;400;500;600;700&family=SN+Pro:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   /* ── Fonts ── */
-  --font-default: "SN Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-default: "SN Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-thai: "Mitr", sans-serif;
 
-
-  /* ── BaMhee Palette ── */
+  /* ── Colors จาก Incoming (BaMhee Palette) ── */
   --color-brand-red: #C0392B;
   --color-brand-red-dark: #922B21;
   --color-brand-orange: #E8441A;
@@ -43,33 +14,44 @@ body {
   --color-brand-cream: #FFF9F0;
   --color-wave-tan: #F5CBA7;
 
+  /* ── Colors เพิ่มเติมจากชุดเก่า (Warm Orange Theme) ── */
+  --color-warm-bg: #FDF6EE;
+  --color-warm-card: #FFF5EB;
+  --color-text-brown: #3D2B1F;
+  --color-text-muted: #A38B78;
+
+  /* ── Difficulty Colors (Merging both styles) ── */
+  --color-easy: #4CAF50;
+  --color-medium: #F0A830;
+  --color-hard: #E74C3C;
+  --color-god: #9B59B6;
+
   /* ── shadcn Semantic Tokens ── */
-  /* v4 allows direct hex/color mapping instead of unitless HSL */
   --color-background: white;
   --color-foreground: #1a1a1a;
-  
   --color-primary: var(--color-brand-red);
   --color-primary-foreground: white;
-  
-  --color-secondary: #fcefd9; /* Soft amber */
+  --color-secondary: #fcefd9;
   --color-secondary-foreground: #922B21;
-  
   --color-accent: var(--color-brand-orange);
   --color-accent-foreground: white;
-
   --color-muted: #f7f3ed;
   --color-muted-foreground: #737373;
-
   --color-border: #f2e4cc;
   --color-input: #f2e4cc;
   --color-ring: var(--color-brand-red);
-  
-  --radius-xl: 0.75rem;
+
+  /* ── Spacing & Radius ── */
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-card: 0 2px 8px rgba(139, 90, 43, 0.06);
+  --shadow-lg: 0 8px 24px rgba(139, 90, 43, 0.12);
 }
 
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   body {
@@ -78,36 +60,86 @@ body {
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, .font-display {
-    font-family: var(--font-default);
-  }
-  p{
+  p {
     font-family: var(--font-thai);
   }
 
-
-  code, .font-code {
-    font-family: var(--font-default);
+  /* Scrollbar Styling จากชุดเก่า */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #E0CDB8;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
   }
 }
 
 @layer utilities {
-  /* Wave / scallop bottom decoration */
+  /* ── Animations จากชุดเก่า ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-16px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+  .animate-slide-in-left { animation: slideInLeft 0.4s ease forwards; }
+  .animate-scale-in { animation: scaleIn 0.3s ease forwards; }
+
+  /* ── Components จากทั้งสองชุด ── */
+  
+  /* Card */
+  .card-custom {
+    @apply bg-white border border-border shadow-sm transition-all duration-200;
+    border-radius: var(--radius-lg);
+  }
+  .card-custom:hover {
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Difficulty Badges */
+  .badge-easy { @apply bg-green-100 text-green-700 border border-green-200 px-3 py-1 rounded-full text-xs font-semibold; }
+  .badge-medium { @apply bg-yellow-100 text-yellow-700 border border-yellow-200 px-3 py-1 rounded-full text-xs font-semibold; }
+  .badge-hard { @apply bg-red-100 text-red-700 border border-red-200 px-3 py-1 rounded-full text-xs font-semibold; }
+  .badge-god { 
+    @apply bg-purple-100 text-purple-700 border border-purple-200 px-3 py-1 rounded-full text-xs font-semibold;
+    box-shadow: 0 0 8px rgba(155, 89, 182, 0.2);
+  }
+
+  /* Progress Bar */
+  .progress-track {
+    @apply h-2 w-full bg-[#F0E0CF] rounded-full overflow-hidden;
+  }
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+
+  /* Wave / Scallop Decoration จาก Incoming */
   .wave-bottom {
     position: relative;
   }
-  
   .wave-bottom::after {
     content: '';
     position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
+    bottom: -1px; left: 0; right: 0;
     height: 48px;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 48'%3E%3Cpath d='M0,48 C100,16 200,40 300,24 C400,8 500,36 600,20 C700,4 800,32 900,18 C1000,4 1100,28 1200,14 L1200,48Z' fill='%23F5CBA7'/%3E%3C/svg%3E") no-repeat bottom center / cover;
   }
 
-  /* Scallop pattern */
   .scallop-bg {
     background-color: var(--color-wave-tan);
     background-image:
@@ -119,21 +151,6 @@ body {
     background-position: 0 0, -40px 0, 40px 0;
   }
 
-  .opacity-0-anim { opacity: 0; }
-
-  /* Code editor area */
-  .code-area {
-    @apply bg-brand-cream font-default;
-    resize: none;
-    outline: none;
-  }
-
-  /* Difficulty badges */
-  .badge-easy   { @apply bg-green-100 text-green-700 border border-green-200; }
-  .badge-medium { @apply bg-yellow-100 text-yellow-700 border border-yellow-200; }
-  .badge-hard   { @apply bg-red-100 text-red-700 border border-red-200; }
-
-  /* Skill pill */
   .skill-pill {
     @apply rounded-full border border-brand-red text-brand-red text-xs px-3 py-1 font-medium;
   }

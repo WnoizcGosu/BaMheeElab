@@ -11,7 +11,7 @@ export default function WaveSection({
   fillColor = "#F5CBA7",
   bgColor = "#FFF9F0",
 }: WaveSectionProps) {
-  const encoded = encodeURIComponent(fillColor);
+  // const encoded = encodeURIComponent(fillColor);
   return (
     <div
       className={cn("w-full overflow-hidden leading-none", className)}
