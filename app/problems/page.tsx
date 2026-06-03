@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Search, ChevronRight, CheckCircle, Circle, XCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
+import { cn } from "@/lib/utils";
 
 // Define a safe TypeScript structure matching the database payload
 interface ProblemData {
@@ -86,45 +87,60 @@ export default function ProblemsPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-[#F5CBA7]/40">
-                  {filtered.map((p) => (
-                    <div
-                      key={p.id}
-                      className="grid grid-cols-[1fr_120px_40px_40px] gap-3 px-5 py-3.5 items-center hover:bg-[#FFF9F0] transition-colors group"
-                    >
-                      {/* Title linked with query parameter ID */}
-                      <div>
-                        <Link href={`/coding?id=${p.id}`}>
-                          <div className="text-sm font-medium text-gray-800 group-hover:text-brand-red transition-colors cursor-pointer">
-                            {p.title}
-                          </div>
-                        </Link>
-                      </div>
+                  {filtered.map((p) => {
+                    const diffLower = p.difficulty.toLowerCase();
+                    const isMedium = diffLower === "medium";
+                    const isGod = diffLower === "god";
 
-                      {/* Difficulty */}
-                      <div className="flex justify-center">
-                        <Badge
-                          variant={p.difficulty.toLowerCase() as "easy" | "medium" | "hard"}
-                          className="text-[10px]"
-                        >
-                          {p.difficulty}
-                        </Badge>
-                      </div>
-                      
-                      {/* Navigation Arrow */}
-                      <div className="flex justify-center">
-                        <Link href={`/coding?id=${p.id}`}>
-                          <button className="p-1 text-gray-300 group-hover:text-brand-red transition-colors cursor-pointer">
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </Link>
-                      </div>
+                    return (
+                      <div
+                        key={p.id}
+                        className="grid grid-cols-[1fr_120px_40px_40px] gap-3 px-5 py-3.5 items-center hover:bg-[#FFF9F0] transition-colors group"
+                      >
+                        {/* Title linked with query parameter ID */}
+                        <div>
+                          <Link href={`/coding?id=${p.id}`}>
+                            <div className="text-sm font-medium text-gray-800 group-hover:text-brand-red transition-colors cursor-pointer">
+                              {p.title}
+                            </div>
+                          </Link>
+                        </div>
 
-                      {/* Status icon computed cleanly */}
-                      <div className="flex items-center justify-center">
-                        {statusIcon[p.status]}
+                        {/* Difficulty */}
+                        <div className="flex justify-center">
+                          <Badge
+                            // สั่งตั้งค่าเป็น default ชั่วคราวเฉพาะคีย์ที่ต้องการยัดสีทับแบบไร้รอยต่อ
+                            variant={(isMedium || isGod) ? "default" : (diffLower as "easy" | "hard")}
+                            className={cn(
+                              "text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 border-transparent shadow-none transition-colors",
+                              
+                              // 🎯 1. เปลี่ยนระดับ Medium เป็นสีฟ้าพาสเทลสดใสสะดุดตา
+                              isMedium && "bg-[#d2ebff] text-sky-500 ",
+                              
+                              // 🎯 2. สลับระดับ God มารับช่วงต่อสีเหลืองมัสตาร์ด-อุ่นแบบที่ Medium เคยเป็นเป๊ะ ๆ
+                              isGod && "bg-[#fff8dc] text-[#D4AC0D] "
+                            )}
+                          >
+                            {p.difficulty}
+                          </Badge>
+                        </div>
+                        
+                        {/* Navigation Arrow */}
+                        <div className="flex justify-center">
+                          <Link href={`/coding?id=${p.id}`}>
+                            <button className="p-1 text-gray-300 group-hover:text-brand-red transition-colors cursor-pointer">
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </Link>
+                        </div>
+
+                        {/* Status icon computed cleanly */}
+                        <div className="flex items-center justify-center">
+                          {statusIcon[p.status]}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
