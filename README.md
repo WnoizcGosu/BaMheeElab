@@ -1,3 +1,6 @@
+# ประกาศสำคัญ (By จูน)
+- feature/editor จะไม่มีการพัฒนาเพิ่มอีก เนื่องจาก -b feature/problem มี Monaco Editor แล้ว
+
 # BaMheeElab — Online Judge Platform
 
 ## Tech Stack
