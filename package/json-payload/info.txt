@@ -1,0 +1,60 @@
+1.) Core Data type : JudgeJobPayload
+
+{
+  "submissionId": "string (UUID)",
+  "problemId": "string (UUID)",
+  "language": "PYTHON | C | CPP",
+  "sourceCode": "string (user's code)",
+  "userId": "string (UUID)"
+}
+
+2.) Related Important Data Types
+Language : "PYTHON", "C", "CPP" ---> Code language selection
+SubmissionStatus : "PENDING", "JUDGING", "ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT", "MEMORY_LIMIT", "RUNTIME_ERROR", "COMPILE_ERROR" ---> Status Tracking
+Role : "USER", "ADMIN" ---> User permissions
+
+3.) Key Variables
+- TestCaseDTO : { id, input, expectedOutput, isHidden }
+- ProblemDTO : { id, title, timeLimit, memoryLimit, testCases[] }
+- SubmissionDTO : { id, userId, problemId, language, sourceCode, status, score, runtime, memory, results[] }
+- LeaderboardEntryDTO : { userId, problemId, bestScore, bestRuntime, bestMemory, updatedAt }
+
+4.) POST endpoint (route.ts)
+- Creates Submission in database
+- builds JudgeJobPayload
+- Enqueues to BullMQ
+
+5.) judge_worker.ts (F.Y.I)
+- Processes jobs from queue
+- Tracks : submissionId, problemId, language, sourceCode, userId
+- Updates : status, score, runtime, memory, results[]
+
+6.) Implementation (Send to BullMQ via Prisma)
+
+// 1. Create submission in Prisma
+const submission = await prisma.submission.create({
+  data: {
+    id: submissionId,
+    user_id: userId,
+    problem_id: problemId,
+    language: language,
+    source_code: sourceCode,
+    status: "PENDING"
+  }
+});
+
+// 2. Create payload
+const payload: JudgeJobPayload = {
+  submissionId,
+  problemId,
+  language,
+  sourceCode,
+  userId
+};
+
+// 3. Add to BullMQ
+await judgeQueue.add("judge", payload, {
+  removeOnComplete: 100,
+  removeOnFail: 100
+});
+
