@@ -9,7 +9,14 @@ export default function CreateProblemPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    category: string;
+    difficulty: "Easy" | "Medium" | "Hard" | "God";
+    time_limit: number;
+    memory_limit: number;
+  }>({
     title: "",
     description: "",
     category: "Programming",
@@ -40,7 +47,6 @@ export default function CreateProblemPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // กรองเฉพาะเคสที่มีข้อมูลไม่เป็นค่าว่าง
       const validTestCases = testCases.filter(
         tc => tc.inputContent.trim() !== "" && tc.outputContent.trim() !== ""
       );
@@ -48,27 +54,20 @@ export default function CreateProblemPage() {
       const res = await fetch("/api/admin/problems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // 🎯 ปรับปรุงก้อนข้อมูลจัดส่ง (Payload) ให้ตรงกันกับโครงสร้างของ Schema Prisma
         body: JSON.stringify({
           title: formData.title,
           description: formData.description,
           category: formData.category,
           difficulty: formData.difficulty,
-          
-          // 📊 แมปฟิลด์ข้อจำกัดเวลาและความจำให้ตรงโมเดล Problem
           time_limit: formData.time_limit,
-          timeLimit: formData.time_limit,     // ส่งเผื่อสำหรับ API ขาแปลง CamelCase
+          timeLimit: formData.time_limit,
           memory_limit: formData.memory_limit,
-          memoryLimit: formData.memory_limit, // ส่งเผื่อสำหรับ API ขาแปลง CamelCase
-
-          // 📊 แปลงโครงสร้างอาเรย์ด้านในให้ตรงโมเดล TestCase ใน schema.prisma
+          memoryLimit: formData.memory_limit,
           testCases: validTestCases.map((tc, index) => ({
-            order_index: index,               // ลำดับอินเด็กซ์ตามโครงสร้างตาราง
-            is_public: tc.isPublic,           // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
-            input_content: tc.inputContent,   // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
-            output_content: tc.outputContent, // แปลงเป็นตัวพิมพ์เล็กแบบงูตาม DB
-            
-            // ส่งสไตล์ CamelCase ควบคู่เพื่อความปลอดภัยชั้นเน็ตเวิร์ก
+            order_index: index,
+            is_public: tc.isPublic,
+            input_content: tc.inputContent,
+            output_content: tc.outputContent,
             isPublic: tc.isPublic,
             inputContent: tc.inputContent,
             outputContent: tc.outputContent,
@@ -80,7 +79,8 @@ export default function CreateProblemPage() {
         router.push("/admin/problems");
         router.refresh();
       } else {
-        console.error("Failed to save problem");
+        const errBody = await res.json().catch(() => ({}));
+        console.error("Failed to save problem", res.status, errBody);
       }
     } catch (error) {
       console.error(error);

@@ -58,4 +58,9 @@ data/users.json
 # data
 data/
 data/users.json
+<<<<<<< HEAD
 >>>>>>> develop
+=======
+# local config / scratch
+image.png
+>>>>>>> 5d0ca09f39d028567f8a878f4b1b542705bc56bd

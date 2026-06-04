@@ -10,7 +10,6 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
     orderBy: { created_at: 'desc' }
   });
 
-  // Use native category and difficulty from the database
   let problems = dbProblems.map((p: typeof dbProblems[number]) => {
     return {
       id: p.id,
@@ -27,10 +26,16 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
   });
 
   if (category) {
+<<<<<<< HEAD
     problems = problems.filter((p: typeof problems[number]) => p.category === category);
   } else {
     // Default: show Programming and General problems
     problems = problems.filter((p: typeof problems[number]) =>
+=======
+    problems = problems.filter((p) => p.category === category);
+  } else {
+    problems = problems.filter((p) =>
+>>>>>>> 5d0ca09f39d028567f8a878f4b1b542705bc56bd
       p.category === "Programming" ||
       p.category === "General" ||
       p.category === "Statistical Programming" ||
@@ -39,12 +44,16 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
   }
 
   const difficultyOrder: Record<string, number> = { "Easy": 1, "Medium": 2, "Hard": 3, "God": 4 };
-  problems.sort((a: typeof problems[number], b: typeof problems[number]) => {
+  problems.sort((a, b) => {
     return (difficultyOrder[a.difficulty] || 99) - (difficultyOrder[b.difficulty] || 99);
   });
 
+<<<<<<< HEAD
   // Serialize dates for client component
   const serializedProblems = problems.map((p: typeof problems[number]) => ({
+=======
+  const serializedProblems = problems.map((p) => ({
+>>>>>>> 5d0ca09f39d028567f8a878f4b1b542705bc56bd
     ...p,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),

@@ -1,4 +1,23 @@
-import { Submission } from "@/types/submission";
+interface Submission {
+  id: string;
+  problemId: string;
+  userId: string;
+  language: string;
+  code: string;
+  status: string;
+  executionTime: number;
+  memoryUsed: number;
+  createdAt: Date;
+  testCaseResults: {
+    testCaseId: string;
+    status: string;
+    executionTime: number;
+    memoryUsed: number;
+    input: string;
+    expectedOutput: string;
+    actualOutput: string;
+  }[];
+}
 
 export const mockSubmissions: Submission[] = [
   {
