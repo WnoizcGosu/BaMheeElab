@@ -54,4 +54,9 @@ data/users.json
 # data
 data/
 data/users.json
+<<<<<<< HEAD
 >>>>>>> develop
+=======
+# local config / scratch
+image.png
+>>>>>>> feature/compiling-system

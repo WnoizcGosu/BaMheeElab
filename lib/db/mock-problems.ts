@@ -4,7 +4,6 @@ import path from "path";
 
 const DATA_FILE = path.join(process.cwd(), "data", "problems.json");
 
-// Helper: read problems from JSON file
 function readProblems(): Problem[] {
   try {
     const raw = fs.readFileSync(DATA_FILE, "utf-8");
@@ -19,7 +18,6 @@ function readProblems(): Problem[] {
   }
 }
 
-// Helper: write problems to JSON file
 function writeProblems(problems: Problem[]): void {
   const dir = path.dirname(DATA_FILE);
   if (!fs.existsSync(dir)) {

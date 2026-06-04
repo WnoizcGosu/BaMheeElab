@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/db/prisma";
 import { s3Client, BUCKET_NAME } from "@/lib/s3";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import crypto from "crypto"; // ใช้สุ่มไอดีกรณีหน้าบ้านไม่ได้ส่ง id มา
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -14,11 +14,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Problem not found." }, { status: 404 });
     }
 
-    // 1. ดึงคีย์รองรับทั้ง CamelCase และ snake_case จากหน้าบ้าน
     const time_limit = data.time_limit !== undefined ? Number(data.time_limit) : (data.timeLimit !== undefined ? Number(data.timeLimit) : undefined);
     const memory_limit = data.memory_limit !== undefined ? Number(data.memory_limit) : (data.memoryLimit !== undefined ? Number(data.memoryLimit) : undefined);
 
-    // อัปเดตฟิลด์ของโจทย์หลัก
     if (data.title || data.description || time_limit !== undefined || memory_limit !== undefined || data.category || data.difficulty) {
       await prisma.problem.update({
         where: { id },
@@ -33,15 +31,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    // 2. จัดการข้อมูลชุดทดสอบ (Test Cases)
     if (data.testCases) {
-      // ล้างเคสเก่าเพื่อความง่ายในการอัปเดตใหม่ตามโครงสร้างเดิมของคุณ
       await prisma.testCase.deleteMany({
         where: { problem_id: id }
       });
 
-      const createPromises = data.testCases.map(async (tc: any, index: number) => {
-        // 🎯 แก้บั๊กไอดีหาย: ถ้าหน้าบ้านไม่ได้ส่ง id มา ให้สุ่ม UUID ให้ทันทีป้องกัน path พังเป็น undefined
+      const createPromises = data.testCases.map(async (tc: { id?: string, filename?: string, inputContent?: string, outputContent?: string, input_content?: string, output_content?: string, isPublic?: boolean, is_public?: boolean }, index: number) => {
         const tcId = tc.id || crypto.randomUUID();
         const inputContent = tc.input_content || tc.inputContent || "";
         const outputContent = tc.output_content || tc.outputContent || "";
@@ -50,7 +45,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         let inputUrl = null;
         let outputUrl = null;
 
-        // 🎯 บล็อกนิรภัยย่อยจุดที่ 1: ดักจับเออร์เรอร์ NoSuchBucket ฝั่ง Input
         try {
           if (inputContent) {
             const inputKey = `problems/${id}/testcases/${tcId}/input.txt`;
@@ -63,10 +57,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
           }
         } catch (s3InputError) {
-          console.warn(`[S3_PUT_WARN] ไม่สามารถอัปโหลดข้อมูลอินพุตเข้าถัง "${BUCKET_NAME}" ได้:`, s3InputError);
+          console.warn(`[S3_PUT_WARN] input upload failed:`, s3InputError);
         }
 
-        // 🎯 บล็อกนิรภัยย่อยจุดที่ 2: ดักจับเออร์เรอร์ NoSuchBucket ฝั่ง Output
         try {
           if (outputContent) {
             const outputKey = `problems/${id}/testcases/${tcId}/output.txt`;
@@ -79,10 +72,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
           }
         } catch (s3OutputError) {
-          console.warn(`[S3_PUT_WARN] ไม่สามารถอัปโหลดข้อมูลเอาต์พุตเข้าถัง "${BUCKET_NAME}" ได้:`, s3OutputError);
+          console.warn(`[S3_PUT_WARN] output upload failed:`, s3OutputError);
         }
 
-        // บันทึกข้อมูลลงฐานข้อมูล PostgreSQL (รันผ่านฉลุยแน่นอนเพราะไม่โดนบล็อก)
         return prisma.testCase.create({
           data: {
             id: tcId,
@@ -116,7 +108,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-// ── คงฟังก์ชัน DELETE เดิมของคุณไว้ทั้งหมดเพื่อความปลอดภัยของ Foreign Key Constraints ──
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -131,7 +122,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       select: { id: true }
     });
     
-    const submissionIds = submissions.map((s: any) => s.id);
+    const submissionIds = submissions.map((s: typeof submissions[number]) => s.id);
     
     if (submissionIds.length > 0) {
       await prisma.testCaseResult.deleteMany({
