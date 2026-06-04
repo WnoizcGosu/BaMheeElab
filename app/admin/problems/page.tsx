@@ -27,10 +27,10 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
   });
 
   if (category) {
-    problems = problems.filter((p: typeof dbProblems[number]) => p.category === category);
+    problems = problems.filter((p: typeof problems[number]) => p.category === category);
   } else {
     // Default: show Programming and General problems
-    problems = problems.filter((p: typeof dbProblems[number]) =>
+    problems = problems.filter((p: typeof problems[number]) =>
       p.category === "Programming" ||
       p.category === "General" ||
       p.category === "Statistical Programming" ||
@@ -44,7 +44,7 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
   });
 
   // Serialize dates for client component
-  const serializedProblems = problems.map((p: typeof dbProblems[number]) => ({
+  const serializedProblems = problems.map((p: typeof problems[number]) => ({
     ...p,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),

@@ -35,7 +35,7 @@ export async function GET(
         `Time Limit: ${problem.time_limit} ms`,
         `Memory Limit: ${problem.memory_limit} MB`
       ],
-      examples: problem.test_cases.map((tc) => ({
+      examples: problem.test_cases.map((tc: typeof problem.test_cases[number]) => ({
         input: tc.input_content || "",
         output: tc.output_content || "",
         explanation: "Sample Test Case"
