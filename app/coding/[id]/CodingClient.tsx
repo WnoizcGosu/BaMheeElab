@@ -12,14 +12,12 @@ import AppNavbar from "@/components/layout/AppNavbar";
 import { cn } from "@/lib/utils";
 import Editor, { loader } from "@monaco-editor/react";
 import { io, Socket } from "socket.io-client";
-// import * as monaco from "monaco-editor"
+import * as monaco from "monaco-editor"
 import type { SubmissionUpdateEvent } from "@/types/submission";
 
-loader.config({
-  paths: {
-    vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs"
-  }
-});
+if (typeof window !== "undefined") {
+  loader.config({ monaco });
+}
 
 const LANGUAGES = ["Python", "C", "C++"];
 
