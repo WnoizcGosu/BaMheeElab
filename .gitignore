@@ -41,10 +41,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Prisma Generated Client
 /lib/generated/prisma
+
 # data
 data/
 data/users.json
+
 # local config / scratch
 image.png
 test-merge-develop.md

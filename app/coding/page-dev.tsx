@@ -1,41 +1,25 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronLeft, Play, Send, ChevronDown,
   CheckCircle, XCircle, Clock, Terminal, ChevronUp, Code2,
-  Check,
+  Check, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
 import { cn } from "@/lib/utils";
-import Editor, { loader } from "@monaco-editor/react";
-import { io, Socket } from "socket.io-client";
-// import * as monaco from "monaco-editor"
-import type { SubmissionUpdateEvent } from "@/types/submission";
+import Editor from "@monaco-editor/react";
 
-loader.config({
-  paths: {
-    vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs"
-  }
-});
-
-const LANGUAGES = ["Python", "C", "C++"];
-
-const LANG_TO_API: Record<string, "PYTHON" | "C" | "CPP"> = {
-  Python: "PYTHON",
-  C: "C",
-  "C++": "CPP",
-};
-
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
-const TEST_USER_ID = "user-test";
+const LANGUAGES = ["Python", "C", "C++", "Java", "JavaScript"];
 
 const STARTER_CODE: Record<string, string> = {
   Python: `a, b = map(int, input().split())\nprint(a + b)`,
   C: `#include <stdio.h>\n\nint main() {\n    return 0;\n}\n`,
   "C++": `#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}\n`,
+  Java: `import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n\n    }\n}\n`,
+  JavaScript: `// Write your solution here\n\n`,
 };
 
 interface TestCaseResult {
@@ -44,9 +28,8 @@ interface TestCaseResult {
   executionTime: number;
   memoryUsed: number;
   input: string;
-  expectedOutput: string | null;
-  actualOutput: string | null;
-  errorMessage?: string | null;
+  expectedOutput: string;
+  actualOutput: string;
 }
 
 interface DBSubmission {
@@ -69,13 +52,13 @@ interface Example {
 }
 
 interface ProblemDetail {
-  id: string;
+  id: string; 
   title: string;
   difficulty: string;
   tags: string[];
   completion: number;
   description: string;
-  constraints: string[];
+  constraints: string[]; 
   examples: Example[];
 }
 
@@ -85,8 +68,8 @@ function formatDate(d: Date) {
     " · " + dateObj.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function CodingClient({ problem: initialProblem }: { problem: any }) {
-  const [problem, setProblem] = useState<any>(initialProblem);
+export default function CodingPage() {
+  const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [lang, setLang] = useState("Python");
   const [code, setCode] = useState(STARTER_CODE["Python"]);
   const [tab, setTab] = useState<"current" | "recent" | "all">("current");
@@ -101,76 +84,45 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const [customInput, setCustomInput] = useState("");
   const [terminalTab, setTerminalTab] = useState<"output" | "input">("output");
 
-  const [terminalHeight, setTerminalHeight] = useState(200);
+  const [terminalHeight, setTerminalHeight] = useState(200); 
   const [isDragging, setIsDragging] = useState(false);
 
-  const socketRef = useRef<Socket | null>(null);
-  const pendingSubmissionId = useRef<string | null>(null);
-
   useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      socket.emit("join", TEST_USER_ID);
-    });
-
-    socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
-      if (event.submissionId !== pendingSubmissionId.current) return;
-
-      if (event.status === "JUDGING") {
-        setOutput("⏳ Judging...");
-        return;
+    const baseMockData: DBSubmission[] = [
+      {
+        id: "sub-1",
+        problemId: "1",
+        userId: "user-1",
+        language: "Python",
+        code: "a, b = map(int, input().split())\nprint(a + b)",
+        status: "Passed",
+        executionTime: 45,
+        memoryUsed: 12.5,
+        createdAt: new Date(Date.now() - 1000 * 60 * 5),
+        testCaseResults: [
+          { testCaseId: "tc-1", status: "Passed", executionTime: 20, memoryUsed: 12.0, input: "5 5", expectedOutput: "10", actualOutput: "10" },
+          { testCaseId: "tc-2", status: "Passed", executionTime: 25, memoryUsed: 12.5, input: "5 15", expectedOutput: "20", actualOutput: "20" },
+          { testCaseId: "tc-3", status: "Passed", executionTime: 22, memoryUsed: 12.2, input: "1000000000 1000000000", expectedOutput: "2000000000", actualOutput: "2000000000" }
+        ]
+      },
+      {
+        id: "sub-2",
+        problemId: "1",
+        userId: "user-1",
+        language: "Python",
+        code: "a, b = map(int, input().split())\nprint(a - b)  # wrong operator",
+        status: "Failed",
+        executionTime: 42,
+        memoryUsed: 12.4,
+        createdAt: new Date(Date.now() - 1000 * 60 * 10),
+        testCaseResults: [
+          { testCaseId: "tc-1", status: "Failed", executionTime: 21, memoryUsed: 12.0, input: "5 5", expectedOutput: "10", actualOutput: "0" },
+          { testCaseId: "tc-2", status: "Failed", executionTime: 21, memoryUsed: 12.4, input: "5 15", expectedOutput: "20", actualOutput: "-10" },
+          { testCaseId: "tc-3", status: "Passed", executionTime: 19, memoryUsed: 12.1, input: "0 0", expectedOutput: "0", actualOutput: "0" }
+        ]
       }
-
-      const passed = event.status === "ACCEPTED";
-      setRunStatus(passed ? "passed" : "failed");
-      setOutput(
-        passed
-          ? `✅ Accepted! Score: ${event.score}/100` +
-            (event.runtime != null ? ` · ${event.runtime}ms` : "") +
-            (event.memory != null ? ` · ${event.memory}KB` : "")
-          : `❌ ${event.status.replace(/_/g, " ")} · Score: ${event.score}/100`
-      );
-
-      try {
-        const res = await fetch(`/api/submissions/${event.submissionId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const mapped: DBSubmission = {
-            id: data.id,
-            problemId: data.problemId ?? "",
-            userId: TEST_USER_ID,
-            language: data.language,
-            code: data.sourceCode ?? "",
-            status: data.status === "ACCEPTED" ? "Passed" : "Failed",
-            executionTime: data.runtime ?? 0,
-            memoryUsed: data.memory ?? 0,
-            createdAt: new Date(data.submittedAt),
-            testCaseResults: (data.results ?? []).map((tc: any) => ({
-              testCaseId: tc.testCaseId,
-              status: tc.passed ? "Passed" : "Failed",
-              executionTime: tc.runtime ?? 0,
-              memoryUsed: tc.memory ?? 0,
-              input: "",
-              expectedOutput: tc.expectedOutput,
-              actualOutput: tc.actualOutput,
-              errorMessage: tc.errorMessage,
-            })),
-          };
-          setSubmissions((prev) => [mapped, ...prev]);
-        }
-      } catch {
-        // fetch error fallback
-      }
-
-      pendingSubmissionId.current = null;
-      setTab("recent");
-    });
-
-    return () => {
-      socket.disconnect();
-    };
+    ];
+    setSubmissions(baseMockData);
   }, []);
 
   useEffect(() => {
@@ -185,13 +137,18 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     if (isDragging) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none"; 
+      document.body.style.cursor = "row-resize"; 
+    } else {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     }
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     };
   }, [isDragging]);
 
@@ -219,7 +176,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    const problemId = queryParams.get("id");
+    const problemId = queryParams.get("id"); 
 
     if (!problemId) return;
 
@@ -232,34 +189,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         setProblem(data);
       })
       .catch((err) => console.error("Error loading problem profile:", err));
-
-    fetch(`/api/submissions?problemId=${problemId}`)
-      .then((res) => res.ok ? res.json() : [])
-      .then((data: any[]) => {
-        const mapped: DBSubmission[] = data.map((s) => ({
-          id: s.id,
-          problemId: s.problemId,
-          userId: TEST_USER_ID,
-          language: s.language,
-          code: s.sourceCode,
-          status: s.status === "ACCEPTED" ? "Passed" : "Failed",
-          executionTime: s.runtime ?? 0,
-          memoryUsed: s.memory ?? 0,
-          createdAt: new Date(s.submittedAt),
-          testCaseResults: s.results.map((tc: any) => ({
-            testCaseId: tc.testCaseId,
-            status: tc.passed ? "Passed" : "Failed",
-            executionTime: tc.runtime ?? 0,
-            memoryUsed: tc.memory ?? 0,
-            input: "",
-            expectedOutput: tc.expectedOutput,
-            actualOutput: tc.actualOutput,
-            errorMessage: tc.errorMessage,
-          })),
-        }));
-        setSubmissions(mapped);
-      })
-      .catch(() => {});
   }, []);
 
   const handleLangChange = (l: string) => {
@@ -267,12 +196,13 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     setCode(STARTER_CODE[l] ?? "");
     setRunStatus("idle");
     setOutput("");
-    setSubmissionResult([]);
+    setSubmissionResult([]); 
   };
 
   const getMonacoLanguage = (displayLang: string) => {
     switch (displayLang) {
       case "C++": return "cpp";
+      case "JavaScript": return "javascript";
       default: return displayLang.toLowerCase();
     }
   };
@@ -287,7 +217,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
           startColumn: word.startColumn,
           endColumn: word.endColumn,
         };
-
+        
         const pythonKeywords = [
           { label: "print", kind: monaco.languages.CompletionItemKind.Function, insertText: "print($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "พิมพ์ข้อมูลออกทางหน้าจอ", range },
           { label: "input", kind: monaco.languages.CompletionItemKind.Function, insertText: "input($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "รับข้อมูลจากคีย์บอร์ด", range },
@@ -304,8 +234,8 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const handleRun = async () => {
     setRunStatus("running");
     setTerminalTab("output");
-    setSubmissionResult([]);
-
+    setSubmissionResult([]); 
+    
     if (lang !== "Python") {
       setOutput(`Error: Browser execution is currently only supported for Python.`);
       setRunStatus("failed");
@@ -342,47 +272,64 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     }
   };
 
-  const handleSubmit = async () => {
-    if (!problem) return;
-    const apiLang = LANG_TO_API[lang];
-    if (!apiLang) {
-      setOutput(`Language "${lang}" is not supported for submission.`);
-      return;
-    }
-
+  const handleSubmit = () => {
     setRunStatus("running");
-    setSubmissionResult([]);
-    setOutput("⏳ Submitting...");
-    setTerminalTab("output");
+    setOutput("Submitting code to fake database engine…");
+    setSubmissionResult([]); 
 
-    try {
-      const res = await fetch("/api/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          problemId: problem.id,
-          language: apiLang,
-          sourceCode: code,
-        }),
-      });
+    setTimeout(() => {
+      const isWrongOperator = code.includes("-");
+      let newSubmission: DBSubmission;
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setOutput(`❌ Submission failed: ${err.error ?? res.statusText}`);
+      if (isWrongOperator) {
         setRunStatus("failed");
-        return;
+        setOutput("❌ Wrong Answer\nSome hidden test cases failed on Fake Database.");
+        setSubmissionResult(["T", "F", "T", "T", "F"]);
+
+        newSubmission = {
+          id: `sub-${Date.now()}`,
+          problemId: problem ? problem.id : "1",
+          userId: "user-1",
+          language: lang,
+          code: code,
+          status: "Failed",
+          executionTime: 48,
+          memoryUsed: 12.6,
+          createdAt: new Date(),
+          testCaseResults: [
+            { testCaseId: "tc-1", status: "Passed", executionTime: 12, memoryUsed: 12.0, input: "2 2", expectedOutput: "4", actualOutput: "4" },
+            { testCaseId: "tc-2", status: "Failed", executionTime: 15, memoryUsed: 12.6, input: "5 3", expectedOutput: "8", actualOutput: "2" },
+            { testCaseId: "tc-3", status: "Passed", executionTime: 10, memoryUsed: 12.1, input: "0 0", expectedOutput: "0", actualOutput: "0" }
+          ]
+        };
+      } else {
+        setRunStatus("passed");
+        setOutput("🎉 Accepted!\nAll hidden test cases passed successfully.");
+        setSubmissionResult(["T", "T", "T"]);
+
+        newSubmission = {
+          id: `sub-${Date.now()}`,
+          problemId: problem ? problem.id : "1",
+          userId: "user-1",
+          language: lang,
+          code: code,
+          status: "Passed",
+          executionTime: 38,
+          memoryUsed: 12.1,
+          createdAt: new Date(),
+          testCaseResults: [
+            { testCaseId: "tc-1", status: "Passed", executionTime: 10, memoryUsed: 12.0, input: "5 5", expectedOutput: "10", actualOutput: "10" },
+            { testCaseId: "tc-2", status: "Passed", executionTime: 12, memoryUsed: 12.1, input: "5 15", expectedOutput: "20", actualOutput: "20" }
+          ]
+        };
       }
 
-      const { submissionId } = await res.json();
-      pendingSubmissionId.current = submissionId;
-      setOutput("⏳ Queued — waiting for judge...");
-
-    } catch (e) {
-      setOutput(`❌ Network error: ${e instanceof Error ? e.message : String(e)}`);
-      setRunStatus("failed");
-    }
+      setSubmissions((prev) => [newSubmission, ...prev]);
+      setTab("recent");
+    }, 1500);
   };
 
+  // 🎯 กล่องดักสถานะโหลด (Guard Clause) เพื่อแก้ปัญหา TypeError: problem is null
   if (!problem) {
     return (
       <div className="h-screen bg-[#FFF9F0] flex items-center justify-center text-gray-500">
@@ -408,13 +355,12 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
             </Link>
             <h1 className="font-display text-xl font-bold text-gray-900 mb-2">{problem.title}</h1>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={problem.difficulty?.toLowerCase() as any || "easy"}>
+              <Badge variant={problem.difficulty.toLowerCase() as "easy" | "medium" | "hard"}>
                 {problem.difficulty}
               </Badge>
-              {problem.tags?.map((t: string) => (
+              {problem.tags.map((t) => (
                 <Badge key={t} variant="topic">{t}</Badge>
               ))}
-              <span className="text-xs text-gray-400 ml-auto">{problem.completion}% acceptance</span>
             </div>
           </div>
 
@@ -423,27 +369,17 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
               <h2 className="font-display font-bold text-gray-900 mb-2">Description</h2>
               <p className="leading-relaxed whitespace-pre-line">{problem.description}</p>
             </div>
-            <div>
-              <h2 className="font-display font-bold text-gray-900 mb-2">Constraints</h2>
-              <ul className="space-y-1">
-                {problem.constraints?.map((c: string) => (
-                  <li key={c} className="flex items-start gap-2">
-                    <span className="text-brand-red mt-0.5">•</span>
-                    <code className="font-code text-xs bg-[#FFF9F0] px-1.5 py-0.5 rounded">{c}</code>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {problem.examples?.map((ex: Example, i: number) => (
+
+            {problem.examples.map((ex, i) => (
               <div key={i}>
                 <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
                 <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">
                   <div className="grid grid-cols-2 divide-x divide-[#F5CBA7]">
-                    <div className="p-3 min-w-0 overflow-x-auto">
+                    <div className="p-3">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Input</div>
                       <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.input}</code>
                     </div>
-                    <div className="p-3 min-w-0 overflow-x-auto">
+                    <div className="p-3">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Output</div>
                       <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.output}</code>
                     </div>
@@ -485,6 +421,25 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
               </div>
             )}
 
+            {tab === "current" && submissionResult.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-[#FFF9F0] px-3 py-1.5 rounded-full border border-[#F5CBA7] animate-in fade-in duration-300">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-0.5">Results:</span>
+                <div className="flex items-center gap-1">
+                  {submissionResult.map((res, idx) => (
+                    <span
+                      key={idx}
+                      className={cn(
+                        "w-5 h-5 rounded flex items-center justify-center border shadow-sm transition-all",
+                        res === "T" ? "bg-green-50 border-green-200 text-green-600 font-bold" : "bg-red-50 border-red-200 text-red-500 text-xs font-medium"
+                      )}
+                    >
+                      {res === "T" ? <Check className="w-3 h-3 stroke-[3]" /> : "x"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {tab === "current" && (
               <div className="flex items-center gap-2 ml-auto">
                 <Button variant="outline" size="sm" onClick={handleRun} disabled={runStatus === "running"} className="h-8 text-xs gap-1.5">
@@ -520,14 +475,14 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                   }}
                 />
               </div>
-
-              <div
+              
+              <div 
                 className={cn("h-1.5 bg-[#F5CBA7] cursor-row-resize flex items-center justify-center transition-colors hover:bg-brand-red", isDragging && "bg-brand-red")}
                 onMouseDown={() => setIsDragging(true)}
               >
                 <div className="w-8 h-0.5 bg-white/50 rounded-full" />
               </div>
-
+              
               <div className="bg-white flex flex-col" style={{ height: `${terminalHeight}px` }}>
                 <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F5CBA7] bg-[#FFF9F0] flex-shrink-0">
                   <button onClick={() => setTerminalTab("output")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "output" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}>
@@ -537,7 +492,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     <Code2 className="w-4 h-4" /> Custom Input
                   </button>
                 </div>
-
+                
                 <div className="flex-1 p-0 overflow-hidden relative bg-white">
                   <div className="h-full w-full p-4 overflow-y-auto">
                     {terminalTab === "output" ? (
@@ -557,7 +512,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
               {recentSub ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="font-display font-bold text-gray-800 text-base">Latest Submission</h2>
+                    <h2 className="font-display font-bold text-gray-800 text-base">Latest Fake-DB Log</h2>
                     <span className="text-xs text-gray-400">{formatDate(recentSub.createdAt)}</span>
                   </div>
                   <div className={cn("rounded-xl p-4 border flex items-center gap-3", recentSub.status === "Passed" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
@@ -569,27 +524,16 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                       </div>
                     </div>
                   </div>
-
+                  
                   <div className="space-y-2">
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Case Details</h3>
                     {recentSub.testCaseResults.map((res, index) => (
-                      <div key={res.testCaseId} className="bg-gray-50 border rounded-lg p-3 text-xs font-code space-y-1">
-                        <div className="flex justify-between items-center">
+                      <div key={res.testCaseId} className="bg-gray-50 border rounded-lg p-3 text-xs font-code flex justify-between items-center">
+                        <div>
                           <span className="font-bold text-gray-600">#Case {index + 1}</span>
-                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", res.status === "Passed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>{res.status}</span>
+                          <span className="text-gray-400 ml-3">In: {res.input} | Expected: {res.expectedOutput} | Got: {res.actualOutput}</span>
                         </div>
-                        {res.errorMessage && (
-                          <div className="text-red-500 mt-1">Error: {res.errorMessage}</div>
-                        )}
-                        {res.expectedOutput != null && (
-                          <div className="text-gray-400">
-                            Expected: <span className="text-gray-600">{res.expectedOutput}</span>
-                            {res.actualOutput != null && <> · Got: <span className="text-gray-600">{res.actualOutput}</span></>}
-                          </div>
-                        )}
-                        {res.expectedOutput == null && (
-                          <div className="text-gray-300 italic">Hidden test case</div>
-                        )}
+                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", res.status === "Passed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>{res.status}</span>
                       </div>
                     ))}
                   </div>

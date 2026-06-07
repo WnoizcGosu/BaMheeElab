@@ -11,7 +11,7 @@ export default async function SubmissionsIndexPage() {
     orderBy: { submitted_at: 'desc' }
   });
 
-  const submissions = dbSubmissions.map((sub: typeof dbSubmissions[number]) => ({
+  const submissions = dbSubmissions.map((sub) => ({
     id: sub.id,
     problemId: sub.problem_id,
     problemTitle: sub.problem.title,
@@ -23,7 +23,7 @@ export default async function SubmissionsIndexPage() {
             sub.status === 'COMPILE_ERROR' ? 'Compilation Error' : 'Pending',
     executionTime: sub.runtime || 0,
     memoryUsed: sub.memory || 0,
-    testCaseResults: sub.test_case_results.map((tc: typeof sub.test_case_results[number]) => ({
+    testCaseResults: sub.test_case_results.map((tc) => ({
       status: tc.passed ? 'Passed' : 'Failed'
     }))
   }));
