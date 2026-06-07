@@ -8,30 +8,20 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
     
-    // 1. สร้าง ID ล่วงหน้า เพื่อนำไปใช้เป็นชื่อโฟลเดอร์ใน S3
-    const problemId = uuidv4(); 
-    
-    // ค้นหา User คนแรกในระบบ หรือถ้ายังไม่มีให้สร้างจำลองขึ้นมาเพื่อใช้สำหรับอ้างอิง foreign key
-    let adminUser = await prisma.user.findFirst();
-    if (!adminUser) {
-      adminUser = await prisma.user.create({
-        data: {
-          id: "7393645e-cb6e-46d3-84fb-fa3d9398e237",
-          email: "admin@example.com",
-          name: "Admin User",
-          role: "ADMIN"
-        }
-      });
-    }
-    const adminUserId = adminUser.id;
+    const problemId = uuidv4();
 
-    // 2. เตรียมข้อมูล Test Cases และจัดการอัปโหลดขึ้น S3
+    // หา ADMIN user คนแรกที่มีใน DB (ยังไม่มี session auth)
+    const adminUser = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+    if (!adminUser) {
+      return NextResponse.json({ error: "No admin user found in DB" }, { status: 500 });
+    }
+    const adminUserId = adminUser.id; 
+
     const preparedTestCases = [];
     if (data.testCases && data.testCases.length > 0) {
       for (let i = 0; i < data.testCases.length; i++) {
         const tc = data.testCases[i];
         const tcId = tc.id || uuidv4();
-        
         const inputContent = tc.input_content || tc.inputContent || "";
         const outputContent = tc.output_content || tc.outputContent || "";
         const isPublic = tc.is_public ?? tc.isPublic ?? false;
@@ -39,7 +29,6 @@ export async function POST(request: NextRequest) {
         let inputUrl = null;
         let outputUrl = null;
 
-        // บล็อกนิรภัย S3 เหมือนที่คุณเขียนไว้
         try {
           if (inputContent) {
             const inputKey = `problems/${problemId}/testcases/${tcId}/input.txt`;
@@ -79,25 +68,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. บันทึกข้อมูลลง PostgreSQL (สร้าง Problem และ TestCase ไปพร้อมกัน)
     const newProblem = await prisma.problem.create({
       data: {
-        id: problemId, // ใช้ ID ที่เราสุ่มไว้ตอนแรก
+        id: problemId,
         title: data.title,
         description: data.description,
         category: data.category || 'Programming',
         difficulty: data.difficulty || 'Easy',
         time_limit: Number(data.time_limit || data.timeLimit || 1000),
         memory_limit: Number(data.memory_limit || data.memoryLimit || 256),
-        created_by: adminUserId, // ฟิลด์บังคับ
+        created_by: adminUserId,
         test_cases: {
-          create: preparedTestCases // ยัด Array ของ Test Case ที่เตรียมไว้ลงไปได้เลย
+          create: preparedTestCases
         }
       }
     });
 
     return NextResponse.json({ message: "สร้างโจทย์เสร็จสิ้น!", newProblem }, { status: 201 });
-
   } catch (error) {
     console.error("Error creating problem:", error);
     return NextResponse.json(

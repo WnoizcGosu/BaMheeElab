@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronLeft, Play, Send, ChevronDown,
   CheckCircle, XCircle, Clock, Terminal, ChevronUp, Code2,
-  Check, X
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,20 @@ import AppNavbar from "@/components/layout/AppNavbar";
 import { cn } from "@/lib/utils";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
+import { io, Socket } from "socket.io-client";
+import type { SubmissionUpdateEvent } from "@/types/submission";
 
 loader.config({ monaco });
+const LANGUAGES = ["Python", "C", "C++"];
 
-const LANGUAGES = ["Python", "C", "C++", "Java", "JavaScript"];
+const LANG_TO_API: Record<string, "PYTHON" | "C" | "CPP"> = {
+  Python: "PYTHON",
+  C: "C",
+  "C++": "CPP",
+};
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+const TEST_USER_ID = "user-test";
 
 const STARTER_CODE: Record<string, string> = {
   Python: `a, b = map(int, input().split())\nprint(a + b)`,
@@ -52,8 +62,9 @@ interface TestCaseResult {
   executionTime: number;
   memoryUsed: number;
   input: string;
-  expectedOutput: string;
-  actualOutput: string;
+  expectedOutput: string | null;
+  actualOutput: string | null;
+  errorMessage?: string | null;
 }
 
 interface DBSubmission {
@@ -110,43 +121,84 @@ export default function CodingClient({ problem }: { problem: any }) {
   const [terminalHeight, setTerminalHeight] = useState(200);
   const [isDragging, setIsDragging] = useState(false);
 
+  const socketRef = useRef<Socket | null>(null);
+  const pendingSubmissionId = useRef<string | null>(null);
+
   useEffect(() => {
-    const baseMockData: DBSubmission[] = [
-      {
-        id: "sub-1",
-        problemId: "1",
-        userId: "user-1",
-        language: "Python",
-        code: "a, b = map(int, input().split())\nprint(a + b)",
-        status: "Passed",
-        executionTime: 45,
-        memoryUsed: 12.5,
-        createdAt: new Date(Date.now() - 1000 * 60 * 5),
-        testCaseResults: [
-          { testCaseId: "tc-1", status: "Passed", executionTime: 20, memoryUsed: 12.0, input: "5 5", expectedOutput: "10", actualOutput: "10" },
-          { testCaseId: "tc-2", status: "Passed", executionTime: 25, memoryUsed: 12.5, input: "5 15", expectedOutput: "20", actualOutput: "20" },
-          { testCaseId: "tc-3", status: "Passed", executionTime: 22, memoryUsed: 12.2, input: "1000000000 1000000000", expectedOutput: "2000000000", actualOutput: "2000000000" }
-        ]
-      },
-      {
-        id: "sub-2",
-        problemId: "1",
-        userId: "user-1",
-        language: "Python",
-        code: "a, b = map(int, input().split())\nprint(a - b)  # wrong operator",
-        status: "Failed",
-        executionTime: 42,
-        memoryUsed: 12.4,
-        createdAt: new Date(Date.now() - 1000 * 60 * 10),
-        testCaseResults: [
-          { testCaseId: "tc-1", status: "Failed", executionTime: 21, memoryUsed: 12.0, input: "5 5", expectedOutput: "10", actualOutput: "0" },
-          { testCaseId: "tc-2", status: "Failed", executionTime: 21, memoryUsed: 12.4, input: "5 15", expectedOutput: "20", actualOutput: "-10" },
-          { testCaseId: "tc-3", status: "Passed", executionTime: 19, memoryUsed: 12.1, input: "0 0", expectedOutput: "0", actualOutput: "0" }
-        ]
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("join", TEST_USER_ID);
+    });
+
+    socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
+      if (event.submissionId !== pendingSubmissionId.current) return;
+
+      if (event.status === "JUDGING") {
+        setOutput("⏳ Judging...");
+        return;
       }
-    ];
-    setSubmissions(baseMockData);
+
+      const passed = event.status === "ACCEPTED";
+      setRunStatus(passed ? "passed" : "failed");
+      setOutput(
+        passed
+          ? `✅ Accepted! Score: ${event.score}/100` +
+            (event.runtime != null ? ` · ${event.runtime}ms` : "") +
+            (event.memory != null ? ` · ${event.memory}KB` : "")
+          : `❌ ${event.status.replace(/_/g, " ")} · Score: ${event.score}/100`
+      );
+
+      // fetch ข้อมูลจริงจาก DB แล้วใส่ใน submissions state
+      try {
+        const res = await fetch(`/api/submissions/${event.submissionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const mapped: DBSubmission = {
+            id: data.id,
+            problemId: data.problemId ?? "",
+            userId: TEST_USER_ID,
+            language: data.language,
+            code: data.sourceCode ?? "",
+            status: data.status === "ACCEPTED" ? "Passed" : "Failed",
+            executionTime: data.runtime ?? 0,
+            memoryUsed: data.memory ?? 0,
+            createdAt: new Date(data.submittedAt),
+            testCaseResults: (data.results ?? []).map((tc: {
+              testCaseId: string;
+              passed: boolean;
+              runtime: number | null;
+              memory: number | null;
+              actualOutput: string | null;
+              expectedOutput: string | null;
+              errorMessage: string | null;
+            }) => ({
+              testCaseId: tc.testCaseId,
+              status: tc.passed ? "Passed" : "Failed",
+              executionTime: tc.runtime ?? 0,
+              memoryUsed: tc.memory ?? 0,
+              input: "",
+              expectedOutput: tc.expectedOutput,
+              actualOutput: tc.actualOutput,
+              errorMessage: tc.errorMessage,
+            })),
+          };
+          setSubmissions((prev) => [mapped, ...prev]);
+        }
+      } catch {
+        // ถ้า fetch ไม่ได้ก็ไม่เป็นไร output บอกผลไปแล้ว
+      }
+
+      pendingSubmissionId.current = null;
+      setTab("recent");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
+
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -197,6 +249,60 @@ export default function CodingClient({ problem }: { problem: any }) {
     loadPyodide();
   }, []);
 
+<<<<<<< HEAD:app/coding/[id]/CodingClient.tsx
+=======
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const problemId = queryParams.get("id");
+
+    if (!problemId) return;
+
+    fetch(`/api/problems/${problemId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Network response failure");
+        return res.json();
+      })
+      .then((data: ProblemDetail) => {
+        setProblem(data);
+      })
+      .catch((err) => console.error("Error loading problem profile:", err));
+
+    // โหลด submission history จาก DB
+    fetch(`/api/submissions?problemId=${problemId}`)
+      .then((res) => res.ok ? res.json() : [])
+      .then((data: Array<{
+        id: string; problemId: string; language: string; sourceCode: string;
+        status: string; runtime: number | null; memory: number | null;
+        submittedAt: string;
+        results: Array<{ testCaseId: string; passed: boolean; runtime: number | null; memory: number | null; actualOutput: string | null; expectedOutput: string | null; errorMessage: string | null }>;
+      }>) => {
+        const mapped: DBSubmission[] = data.map((s) => ({
+          id: s.id,
+          problemId: s.problemId,
+          userId: TEST_USER_ID,
+          language: s.language,
+          code: s.sourceCode,
+          status: s.status === "ACCEPTED" ? "Passed" : "Failed",
+          executionTime: s.runtime ?? 0,
+          memoryUsed: s.memory ?? 0,
+          createdAt: new Date(s.submittedAt),
+          testCaseResults: s.results.map((tc) => ({
+            testCaseId: tc.testCaseId,
+            status: tc.passed ? "Passed" : "Failed",
+            executionTime: tc.runtime ?? 0,
+            memoryUsed: tc.memory ?? 0,
+            input: "",
+            expectedOutput: tc.expectedOutput,
+            actualOutput: tc.actualOutput,
+            errorMessage: tc.errorMessage,
+          })),
+        }));
+        setSubmissions(mapped);
+      })
+      .catch(() => {});
+  }, []);
+
+>>>>>>> feature/Compiling-system:app/coding/page.tsx
   const handleLangChange = (l: string) => {
     setLang(l);
     setCode(STARTER_CODE[l] ?? "");
@@ -278,61 +384,50 @@ export default function CodingClient({ problem }: { problem: any }) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!problem) return;
+    const apiLang = LANG_TO_API[lang];
+    if (!apiLang) {
+      setOutput(`Language "${lang}" is not supported for submission.`);
+      return;
+    }
+
     setRunStatus("running");
+<<<<<<< HEAD:app/coding/[id]/CodingClient.tsx
     setOutput("Submitting code to fake database engine…");
     setSubmissionResult([]);
+=======
+    setSubmissionResult([]);
+    setOutput("⏳ Submitting...");
+    setTerminalTab("output");
+>>>>>>> feature/Compiling-system:app/coding/page.tsx
 
-    setTimeout(() => {
-      const isWrongOperator = code.includes("-");
-      let newSubmission: DBSubmission;
+    try {
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problemId: problem.id,
+          language: apiLang,
+          sourceCode: code,
+        }),
+      });
 
-      if (isWrongOperator) {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setOutput(`❌ Submission failed: ${err.error ?? res.statusText}`);
         setRunStatus("failed");
-        setOutput("❌ Wrong Answer\nSome hidden test cases failed on Fake Database.");
-        setSubmissionResult(["T", "F", "T", "T", "F"]);
-
-        newSubmission = {
-          id: `sub-${Date.now()}`,
-          problemId: problem ? problem.id : "1",
-          userId: "user-1",
-          language: lang,
-          code: code,
-          status: "Failed",
-          executionTime: 48,
-          memoryUsed: 12.6,
-          createdAt: new Date(),
-          testCaseResults: [
-            { testCaseId: "tc-1", status: "Passed", executionTime: 12, memoryUsed: 12.0, input: "2 2", expectedOutput: "4", actualOutput: "4" },
-            { testCaseId: "tc-2", status: "Failed", executionTime: 15, memoryUsed: 12.6, input: "5 3", expectedOutput: "8", actualOutput: "2" },
-            { testCaseId: "tc-3", status: "Passed", executionTime: 10, memoryUsed: 12.1, input: "0 0", expectedOutput: "0", actualOutput: "0" }
-          ]
-        };
-      } else {
-        setRunStatus("passed");
-        setOutput("🎉 Accepted!\nAll hidden test cases passed successfully.");
-        setSubmissionResult(["T", "T", "T"]);
-
-        newSubmission = {
-          id: `sub-${Date.now()}`,
-          problemId: problem ? problem.id : "1",
-          userId: "user-1",
-          language: lang,
-          code: code,
-          status: "Passed",
-          executionTime: 38,
-          memoryUsed: 12.1,
-          createdAt: new Date(),
-          testCaseResults: [
-            { testCaseId: "tc-1", status: "Passed", executionTime: 10, memoryUsed: 12.0, input: "5 5", expectedOutput: "10", actualOutput: "10" },
-            { testCaseId: "tc-2", status: "Passed", executionTime: 12, memoryUsed: 12.1, input: "5 15", expectedOutput: "20", actualOutput: "20" }
-          ]
-        };
+        return;
       }
 
-      setSubmissions((prev) => [newSubmission, ...prev]);
-      setTab("recent");
-    }, 1500);
+      const { submissionId } = await res.json();
+      pendingSubmissionId.current = submissionId;
+      setOutput("⏳ Queued — waiting for judge...");
+
+    } catch (e) {
+      setOutput(`❌ Network error: ${e instanceof Error ? e.message : String(e)}`);
+      setRunStatus("failed");
+    }
   };
 
   // 🎯 กล่องดักสถานะโหลด (Guard Clause) เพื่อแก้ปัญหา TypeError: problem is null
@@ -564,9 +659,156 @@ export default function CodingClient({ problem }: { problem: any }) {
               <pre className="font-code text-xs text-gray-700 p-4 overflow-x-auto whitespace-pre-wrap">{recentSub.code}</pre>
             </div>
           </div>
+<<<<<<< HEAD:app/coding/[id]/CodingClient.tsx
         ) : (
           <div className="h-full flex flex-col items-center justify-center py-20 text-gray-400 text-sm">No submissions yet</div>
         )}
+=======
+
+          {/* TAB CONTENT: CURRENT */}
+          {tab === "current" && (
+            <div className="flex-1 overflow-hidden flex flex-col bg-white">
+              <div className="flex-1 w-full pt-2 bg-white" style={{ minHeight: "100px" }}>
+                <Editor
+                  height="100%"
+                  width="100%"
+                  language={getMonacoLanguage(lang)}
+                  value={code}
+                  onChange={(value) => setCode(value || "")}
+                  onMount={handleEditorMount}
+                  options={{
+                    fontSize: 14,
+                    fontFamily: "var(--font-code), monospace",
+                    minimap: { enabled: false },
+                    scrollbar: { vertical: "visible", horizontal: "visible" },
+                    lineNumbers: "on",
+                    automaticLayout: true,
+                    tabSize: 4,
+                    fixedOverflowWidgets: true,
+                  }}
+                />
+              </div>
+              
+              <div 
+                className={cn("h-1.5 bg-[#F5CBA7] cursor-row-resize flex items-center justify-center transition-colors hover:bg-brand-red", isDragging && "bg-brand-red")}
+                onMouseDown={() => setIsDragging(true)}
+              >
+                <div className="w-8 h-0.5 bg-white/50 rounded-full" />
+              </div>
+              
+              <div className="bg-white flex flex-col" style={{ height: `${terminalHeight}px` }}>
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F5CBA7] bg-[#FFF9F0] flex-shrink-0">
+                  <button onClick={() => setTerminalTab("output")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "output" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}>
+                    <Terminal className="w-4 h-4" /> Output
+                  </button>
+                  <button onClick={() => setTerminalTab("input")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "input" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}>
+                    <Code2 className="w-4 h-4" /> Custom Input
+                  </button>
+                </div>
+                
+                <div className="flex-1 p-0 overflow-hidden relative bg-white">
+                  <div className="h-full w-full p-4 overflow-y-auto">
+                    {terminalTab === "output" ? (
+                      output ? <pre className={cn("font-code text-xs leading-relaxed whitespace-pre-wrap", runStatus === "failed" ? "text-red-500" : "text-gray-700")}>{output}</pre> : <div className="h-full flex items-center justify-center"><p className="text-xs text-gray-300 italic">Click &ldquo;Run&rdquo; to test your code</p></div>
+                    ) : (
+                      <textarea value={customInput} onChange={(e) => setCustomInput(e.target.value)} placeholder="Enter custom input here..." className="h-full w-full p-4 font-code text-xs text-gray-700 resize-none outline-none border-none" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: RECENT */}
+          {tab === "recent" && (
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              {recentSub ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-display font-bold text-gray-800 text-base">Latest Submission</h2>
+                    <span className="text-xs text-gray-400">{formatDate(recentSub.createdAt)}</span>
+                  </div>
+                  <div className={cn("rounded-xl p-4 border flex items-center gap-3", recentSub.status === "Passed" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
+                    {recentSub.status === "Passed" ? <CheckCircle className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
+                    <div>
+                      <div className={cn("text-sm font-bold", recentSub.status === "Passed" ? "text-green-700" : "text-red-700")}>{recentSub.status === "Passed" ? "Accepted" : "Wrong Answer"}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Runtime: {recentSub.executionTime}ms · Memory: {recentSub.memoryUsed}MB · Language: {recentSub.language}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Case Details</h3>
+                    {recentSub.testCaseResults.map((res, index) => (
+                      <div key={res.testCaseId} className="bg-gray-50 border rounded-lg p-3 text-xs font-code space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-gray-600">#Case {index + 1}</span>
+                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", res.status === "Passed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>{res.status}</span>
+                        </div>
+                        {res.errorMessage && (
+                          <div className="text-red-500 mt-1">Error: {res.errorMessage}</div>
+                        )}
+                        {res.expectedOutput != null && (
+                          <div className="text-gray-400">
+                            Expected: <span className="text-gray-600">{res.expectedOutput}</span>
+                            {res.actualOutput != null && <> · Got: <span className="text-gray-600">{res.actualOutput}</span></>}
+                          </div>
+                        )}
+                        {res.expectedOutput == null && (
+                          <div className="text-gray-300 italic">Hidden test case</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">
+                    <pre className="font-code text-xs text-gray-700 p-4 overflow-x-auto whitespace-pre-wrap">{recentSub.code}</pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center py-20 text-gray-400 text-sm">No submissions yet</div>
+              )}
+            </div>
+          )}
+
+          {/* TAB CONTENT: ALL */}
+          {tab === "all" && (
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              {submissions.length > 0 ? (
+                <div className="space-y-3">
+                  {submissions.map((sub) => {
+                    const isExpanded = expandedId === sub.id;
+                    return (
+                      <div key={sub.id} className="bg-white rounded-xl border border-[#F5CBA7] overflow-hidden shadow-sm">
+                        <button onClick={() => setExpandedId(isExpanded ? null : sub.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#FFF9F0] text-left">
+                          <span className={cn("text-xs font-semibold", sub.status === "Passed" ? "text-green-600" : "text-red-500")}>
+                            {sub.status === "Passed" ? "Accepted" : "Wrong Answer"}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-auto">{formatDate(sub.createdAt)}</span>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-[#F5CBA7] bg-[#FFF9F0] p-4 space-y-3">
+                            <div className="grid grid-cols-3 gap-2 text-[11px] font-code bg-white/60 p-2 rounded border border-orange-100">
+                              <div>🚀 Time: {sub.executionTime}ms</div>
+                              <div>📦 Memory: {sub.memoryUsed}MB</div>
+                              <div>📝 Lang: {sub.language}</div>
+                            </div>
+                            <pre className="font-code text-xs text-gray-700 p-3 bg-white border rounded-lg whitespace-pre-wrap max-h-64 overflow-y-auto">{sub.code}</pre>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center py-20 text-gray-400 text-sm">No submission logs found</div>
+              )}
+            </div>
+          )}
+        </div>
+>>>>>>> feature/Compiling-system:app/coding/page.tsx
       </div>
     )
   }

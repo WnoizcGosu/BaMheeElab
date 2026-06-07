@@ -10,7 +10,6 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
     orderBy: { created_at: 'desc' }
   });
 
-  // Use native category and difficulty from the database
   let problems = dbProblems.map((p: typeof dbProblems[number]) => {
     return {
       id: p.id,
