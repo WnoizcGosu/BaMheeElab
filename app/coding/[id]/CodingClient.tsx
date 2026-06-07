@@ -10,7 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
 import { cn } from "@/lib/utils";
-import Editor from "@monaco-editor/react";
+import Editor, { loader } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
+
+loader.config({ monaco });
 
 const LANGUAGES = ["Python", "C", "C++", "Java", "JavaScript"];
 
