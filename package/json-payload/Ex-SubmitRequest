@@ -1,0 +1,5 @@
+{
+    "problemId": "uuid-string",
+    "language": "PYTHON" | "C" | "CPP",
+    "sourceCode": "string (user's code)"
+}
