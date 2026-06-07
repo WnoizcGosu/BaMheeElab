@@ -47,3 +47,5 @@ data/
 data/users.json
 # local config / scratch
 image.png
+test-merge-develop.md
+scripts/seed-admin-user.ts
