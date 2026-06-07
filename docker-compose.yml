@@ -42,10 +42,11 @@ services:
 
   # ---------- Judge0 sandbox stack ----------
   judge0-server:
-    image: judge0/judge0:1.13.1
+    image: mrkushalsm/judge0
     container_name: bam-judge0-server
     volumes:
       - ./judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     ports:
       - "2358:2358"
     privileged: true
@@ -55,11 +56,12 @@ services:
       - judge0-redis
 
   judge0-workers:
-    image: judge0/judge0:1.13.1
+    image: mrkushalsm/judge0
     container_name: bam-judge0-workers
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     privileged: true
     restart: unless-stopped
     depends_on:

@@ -16,6 +16,7 @@
  *
  * Run: `npx tsx worker/judge.worker.ts`
  */
+
 import { Worker, type Job } from "bullmq";
 import type {
   JudgeJobPayload,
@@ -39,7 +40,7 @@ import {
   finalizeSubmission,
   upsertLeaderboardEntry,
   type TestCaseDTO,
-} from "@/lib/db/judge-store";
+} from "@/lib/db/judge-prisma-store";
 import { emitSubmissionUpdate } from "@/lib/socket";
 import {
   shouldOffload,

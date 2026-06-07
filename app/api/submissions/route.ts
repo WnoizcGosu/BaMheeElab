@@ -1,37 +1,53 @@
-/**
- * POST /api/submissions — stub of Jun's submit endpoint.
- *
- * Body : SubmitRequest  { problemId, language, sourceCode }
- * → 201: SubmitResponse { submissionId, status: "PENDING" }
- *
- * Creates a submission row in the mock store and enqueues a JudgeJobPayload
- * onto the "judge" BullMQ queue. UserId is hardcoded to "user-test" since
- * auth isn't wired yet — swap this for the session user when it is.
- */
 import { NextResponse, type NextRequest } from "next/server";
-import { randomUUID } from "node:crypto";
 import { judgeQueue } from "@/lib/queue";
-import { createSubmission, getSubmissionsByProblem } from "@/lib/db/judge-store";
+import { prisma } from "@/lib/prisma"; 
 import type {
   SubmitRequest,
   SubmitResponse,
-  Language,
   JudgeJobPayload,
 } from "@/types/submission";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from  "@/lib/auth";
+import { Language as PrismaLanguage } from "@prisma/client";
 
-const LANGS: ReadonlySet<Language> = new Set(["PYTHON", "C", "CPP"]);
-const TEST_USER_ID = "user-test";
+const LANGS: ReadonlySet<string> = new Set(["PYTHON", "C", "CPP"]);
 
+// ─── [GET] ดึงประวัติการส่งโค้ดของข้อนั้นๆ ───
 export async function GET(req: NextRequest) {
+  // เช็กสิทธิ์ผู้ใช้งานก่อนทำเรื่องดึงข้อมูล
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
   const problemId = req.nextUrl.searchParams.get("problemId");
   if (!problemId) {
     return NextResponse.json({ error: "problemId is required" }, { status: 400 });
   }
-  const submissions = await getSubmissionsByProblem(problemId, TEST_USER_ID);
+
+  // ดึงข้อมูลจริงจาก PostgreSQL ตาม userId คนที่ล็อกอินอยู่
+  const submissions = await prisma.submission.findMany({
+    where: {
+      problem_id: problemId,
+      user_id: userId,
+    },
+    orderBy: {
+      submitted_at: "desc",
+    },
+  });
+
   return NextResponse.json(submissions);
 }
 
+// ─── [POST] รับโค้ดจากหน้าบ้านเพื่อตรวจ ───
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+
   let body: SubmitRequest;
   try {
     body = (await req.json()) as SubmitRequest;
@@ -39,6 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // Validation ตัวแปรที่ส่งมา
   if (
     !body?.problemId ||
     !body?.sourceCode ||
@@ -49,28 +66,37 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  console.log(body.language)
 
-  const submissionId = randomUUID();
-  await createSubmission({
-    id: submissionId,
-    userId: TEST_USER_ID,
-    problemId: body.problemId,
-    language: body.language,
-    sourceCode: body.sourceCode,
+  // บันทึกลง PostgreSQL ผ่าน Prisma
+  const submission = await prisma.submission.create({
+    data: {
+      user_id: userId,
+      problem_id: body.problemId,
+      language: body.language as PrismaLanguage,
+      source_code: body.sourceCode,
+    },
   });
 
+  // จัดเตรียมข้อมูล Payload ส่งเข้าคิว BullMQ
   const payload: JudgeJobPayload = {
-    submissionId,
+    submissionId: submission.id, 
     problemId: body.problemId,
     language: body.language,
     sourceCode: body.sourceCode,
-    userId: TEST_USER_ID,
+    userId: userId,
   };
+
   await judgeQueue.add("judge", payload, {
     removeOnComplete: 100,
     removeOnFail: 100,
   });
 
-  const res: SubmitResponse = { submissionId, status: "PENDING" };
-  return NextResponse.json(res, { status: 201 });
+  // ส่ง HTTP Status 202 กลับไปที่หน้าบ้าน
+  const res: SubmitResponse = { 
+    submissionId: submission.id, 
+    status: "PENDING" 
+  };
+  
+  return NextResponse.json(res, { status: 202 });
 }

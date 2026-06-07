@@ -1,6 +1,8 @@
 // app/api/register/route.ts
 import { NextResponse } from "next/server";
 import { findUserByUsername, findUserByEmail, createUser } from "@/lib/db/mock-users";
+// 📥 1. อิมพอร์ต prisma client เพื่อเขียนลง PostgreSQL คู่กัน
+import { prisma } from "@/lib/prisma"; 
 
 export async function POST(req: Request) {
   try {
@@ -31,9 +33,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email is already registered" }, { status: 400 });
     }
 
-    await createUser({ username, email, password });
+    // 📝 2. บันทึกลงในไฟล์ JSON (จากระบบเดิม)
+    // แนะนำ: ให้ตรวจสอบในฟังก์ชัน `createUser` ของคุณว่ามันทำการ return ออบเจกต์ผู้ใช้ที่มีค่า id ออกมาด้วยไหม 
+    // ตัวอย่าง: const savedUser = await createUser({ username, email, password });
+    const savedUser = await createUser({ username, email, password });
 
-    console.log(`[API SUCCESS] Registration complete for user: ${username}`);
+    // 📝 3. สั่งซิงค์เขียนลงตาราง User ของ PostgreSQL ทันที
+    // โดยแมปรหัส ID ให้ตรงกับที่ฟังก์ชันสมัครฝั่ง JSON สุ่มสร้างขึ้นมา
+    await prisma.user.create({
+      data: {
+        id: savedUser.id, // 👈 ล็อกรหัส ID เดียวกันเพื่อเป็นสะพานเชื่อม Foreign Key
+        email: email,
+        name: username,
+        role: "USER"       // ตั้งสิทธิ์เริ่มต้นเป็นนักเรียนตาม Enum ของ Prisma
+      }
+    });
+
+    console.log(`[API SUCCESS] Registration complete for user: ${username} (Synced to PostgreSQL)`);
     return NextResponse.json({ message: "Account created successfully!" }, { status: 201 });
   } catch (error) {
     console.error("[API CRASH] Registration endpoint failed:", error);

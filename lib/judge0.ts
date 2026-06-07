@@ -1,7 +1,8 @@
+// lib/judge0.ts
 import type { Language, SubmissionStatus } from "@/types/submission";
 
 export const JUDGE0_API_URL =
-  process.env.JUDGE0_API_URL || "http://localhost:2358";
+  process.env.JUDGE0_API_URL || "http://127.0.0.1:2358";
 export const JUDGE0_CALLBACK_URL = process.env.JUDGE0_CALLBACK_URL || "";
 export const JUDGE0_CALLBACK_SECRET =
   process.env.JUDGE0_CALLBACK_SECRET || "dev-secret";
@@ -37,28 +38,52 @@ export interface Judge0Result {
  * Submit a single source+stdin to Judge0. Returns the token.
  * wait=false → async; we poll or rely on callback.
  */
-export async function submitToJudge0(
-  payload: Judge0Submission
-): Promise<{ token: string }> {
-  const url = `${JUDGE0_API_URL}/submissions?base64_encoded=false&wait=false`;
-  const res = await fetch(url, {
+export async function submitToJudge0(params: any) {
+  // 🎯 1. ส่งเป็น Base64 เพื่อป้องกันปัญหาอักขระพิเศษและภาษาไทย
+  const url = `${JUDGE0_API_URL}/submissions?base64_encoded=true&wait=false`;
+
+  const payload = {
+    ...params,
+    source_code: params.source_code ? Buffer.from(params.source_code, "utf-8").toString("base64") : null,
+    stdin: params.stdin ? Buffer.from(params.stdin, "utf-8").toString("base64") : null,
+    expected_output: params.expected_output ? Buffer.from(params.expected_output, "utf-8").toString("base64") : null,
+  };
+
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    throw new Error(`Judge0 submit failed: ${res.status} ${await res.text()}`);
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Judge0 submit failed: ${response.status} ${err}`);
   }
-  return res.json();
+
+  return response.json();
 }
 
+/**
+ * ดึงผลลัพธ์จาก Judge0 และถอดรหัส Base64 กลับเป็นอักขระปกติ (UTF-8)
+ */
 export async function getJudge0Result(token: string): Promise<Judge0Result> {
-  const url = `${JUDGE0_API_URL}/submissions/${token}?base64_encoded=false&fields=*`;
+  // 🎯 2. ต้องดึงผลแบบ base64_encoded=true ด้วย
+  const url = `${JUDGE0_API_URL}/submissions/${token}?base64_encoded=true&fields=*`;
   const res = await fetch(url);
+  
   if (!res.ok) {
     throw new Error(`Judge0 get failed: ${res.status} ${await res.text()}`);
   }
-  return res.json();
+  
+  const data = await res.json();
+
+  // 🎯 3. ถอดรหัส Base64 กลับมาเป็นอักขระภาษาคน (ถ้ามีข้อมูลส่งกลับมา)
+  if (data.stdout) data.stdout = Buffer.from(data.stdout, "base64").toString("utf-8");
+  if (data.stderr) data.stderr = Buffer.from(data.stderr, "base64").toString("utf-8");
+  if (data.compile_output) data.compile_output = Buffer.from(data.compile_output, "base64").toString("utf-8");
+  if (data.message) data.message = Buffer.from(data.message, "base64").toString("utf-8");
+
+  return data;
 }
 
 /**
@@ -71,6 +96,7 @@ export async function waitForJudge0(
   const timeoutMs = opts.timeoutMs ?? 30_000;
   const intervalMs = opts.intervalMs ?? 500;
   const started = Date.now();
+  
   while (true) {
     const r = await getJudge0Result(token);
     if (r.status.id > 2) return r;
@@ -83,12 +109,6 @@ export async function waitForJudge0(
 
 /**
  * Map Judge0 status id → our SubmissionStatus.
- * 1,2 = still running (shouldn't be passed in once finished)
- * 3   = ACCEPTED
- * 4   = WRONG_ANSWER
- * 5   = TIME_LIMIT
- * 6   = COMPILE_ERROR
- * 7-12 = RUNTIME_ERROR (incl. memory limit handled separately by description)
  */
 export function mapJudge0Status(
   judge0StatusId: number,

@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-export function emitSubmissionUpdate(_userId: string, _payload: unknown): void {
-  // noop in sample environment
-=======
 /**
  * Socket.IO transport for SubmissionUpdateEvent.
  *
@@ -99,5 +95,4 @@ export function emitSubmissionUpdate(
 // `npm run socket` boots the server.
 if (require.main === module) {
   getIO();
->>>>>>> feature/compiling-system
 }

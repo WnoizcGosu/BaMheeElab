@@ -12,8 +12,10 @@ import AppNavbar from "@/components/layout/AppNavbar";
 import { cn } from "@/lib/utils";
 import Editor, { loader } from "@monaco-editor/react";
 import { io, Socket } from "socket.io-client";
-import * as monaco from "monaco-editor"
+import * as monaco from "monaco-editor";
 import type { SubmissionUpdateEvent } from "@/types/submission";
+// 📥 1. อิมพอร์ต useSession มาดึงข้อมูลผู้ใช้งานจริง
+import { useSession } from "next-auth/react";
 
 if (typeof window !== "undefined") {
   loader.config({ monaco });
@@ -28,7 +30,6 @@ const LANG_TO_API: Record<string, "PYTHON" | "C" | "CPP"> = {
 };
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
-const TEST_USER_ID = "user-test";
 
 const STARTER_CODE: Record<string, string> = {
   Python: `a, b = map(int, input().split())\nprint(a + b)`,
@@ -84,6 +85,10 @@ function formatDate(d: Date) {
 }
 
 export default function CodingClient({ problem: initialProblem }: { problem: any }) {
+  // 📥 2. ดึงข้อมูลผู้ใช้งานสิทธิ์ล็อกอินจากหน้าบ้าน
+  const { data: session } = useSession();
+  const userId = session?.user?.id || "anonymous-user";
+
   const [problem, setProblem] = useState<any>(initialProblem);
   const [lang, setLang] = useState("Python");
   const [code, setCode] = useState(STARTER_CODE["Python"]);
@@ -105,12 +110,16 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const socketRef = useRef<Socket | null>(null);
   const pendingSubmissionId = useRef<string | null>(null);
 
+  // ── WebSocket Connection Effect ──
   useEffect(() => {
+    if (!session?.user?.id) return; // รอให้ล็อกอินเสร็จก่อนเชื่อมต่อสตรีมคิว
+
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      socket.emit("join", TEST_USER_ID);
+      // ✅ 3. ลงทะเบียนเข้าห้อง Socket ส่วนตัวด้วยไอดีจริงจากระบบ Auth
+      socket.emit("join", session.user.id);
     });
 
     socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
@@ -135,25 +144,26 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         const res = await fetch(`/api/submissions/${event.submissionId}`);
         if (res.ok) {
           const data = await res.json();
+          // ✅ 4. อัปเดตข้อมูลให้สอดคล้องกับแมปฟีลด์สเน็กเคสของหลังบ้าน
           const mapped: DBSubmission = {
             id: data.id,
-            problemId: data.problemId ?? "",
-            userId: TEST_USER_ID,
+            problemId: data.problem_id ?? "",
+            userId: session.user.id,
             language: data.language,
-            code: data.sourceCode ?? "",
+            code: data.source_code ?? "",
             status: data.status === "ACCEPTED" ? "Passed" : "Failed",
             executionTime: data.runtime ?? 0,
             memoryUsed: data.memory ?? 0,
-            createdAt: new Date(data.submittedAt),
-            testCaseResults: (data.results ?? []).map((tc: any) => ({
-              testCaseId: tc.testCaseId,
+            createdAt: new Date(data.submitted_at),
+            testCaseResults: (data.test_case_results ?? []).map((tc: any) => ({
+              testCaseId: tc.test_case_id ?? tc.id,
               status: tc.passed ? "Passed" : "Failed",
               executionTime: tc.runtime ?? 0,
               memoryUsed: tc.memory ?? 0,
               input: "",
-              expectedOutput: tc.expectedOutput,
-              actualOutput: tc.actualOutput,
-              errorMessage: tc.errorMessage,
+              expectedOutput: tc.expectedOutput ?? null,
+              actualOutput: tc.actual_output ?? null,
+              errorMessage: tc.error_message ?? null,
             })),
           };
           setSubmissions((prev) => [mapped, ...prev]);
@@ -169,7 +179,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [session]); // บังคับผูกเช็กเมื่อสิทธิ์การรัน Session มีการเปลี่ยนแปลง
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -215,6 +225,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     loadPyodide();
   }, []);
 
+  // ── ดึงโจทย์และประวัติการส่งโค้ดทั้งหมดตอนโหลดหน้าเว็บ ──
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const problemId = queryParams.get("id");
@@ -234,31 +245,32 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     fetch(`/api/submissions?problemId=${problemId}`)
       .then((res) => res.ok ? res.json() : [])
       .then((data: any[]) => {
+        // ✅ 5. ล้างฟีลด์ฝั่งเรียกเก็บประวัติเก่าให้ตรงกับ Property Prisma API
         const mapped: DBSubmission[] = data.map((s) => ({
           id: s.id,
-          problemId: s.problemId,
-          userId: TEST_USER_ID,
+          problemId: s.problem_id,
+          userId: userId,
           language: s.language,
-          code: s.sourceCode,
+          code: s.source_code,
           status: s.status === "ACCEPTED" ? "Passed" : "Failed",
           executionTime: s.runtime ?? 0,
           memoryUsed: s.memory ?? 0,
-          createdAt: new Date(s.submittedAt),
-          testCaseResults: s.results.map((tc: any) => ({
-            testCaseId: tc.testCaseId,
+          createdAt: new Date(s.submitted_at),
+          testCaseResults: (s.test_case_results ?? []).map((tc: any) => ({
+            testCaseId: tc.test_case_id ?? tc.id,
             status: tc.passed ? "Passed" : "Failed",
             executionTime: tc.runtime ?? 0,
             memoryUsed: tc.memory ?? 0,
             input: "",
-            expectedOutput: tc.expectedOutput,
-            actualOutput: tc.actualOutput,
-            errorMessage: tc.errorMessage,
+            expectedOutput: tc.expectedOutput ?? null,
+            actualOutput: tc.actual_output ?? null,
+            errorMessage: tc.error_message ?? null,
           })),
         }));
         setSubmissions(mapped);
       })
       .catch(() => {});
-  }, []);
+  }, [userId]); // บังคับให้โหลดข้อมูลใหม่เมื่อ User ล็อกอินสำเร็จ
 
   const handleLangChange = (l: string) => {
     setLang(l);
@@ -456,7 +468,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <div className="flex items-center px-4 py-2.5 bg-white border-b border-[#F5CBA7] gap-3">
             <div className="flex items-center gap-1 bg-[#FFF9F0] rounded-full p-0.5 border border-[#F5CBA7]">
-              {(["current", "recent", "all"] as const).map((t) => (
+              {([ "current", "recent", "all" ] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -515,6 +527,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     automaticLayout: true,
                     tabSize: 4,
                     fixedOverflowWidgets: true,
+                    tabCompletion: "on",
                   }}
                 />
               </div>
