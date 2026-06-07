@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
     orderBy: {
       submitted_at: "desc",
     },
+    include: {
+      test_case_results: true 
+    }
   });
 
   return NextResponse.json(submissions);

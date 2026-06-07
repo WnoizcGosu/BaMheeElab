@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, Play, Send, ChevronDown,
   CheckCircle, XCircle, Clock, Terminal, ChevronUp, Code2,
-  Check,
+  Check, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import Editor, { loader } from "@monaco-editor/react";
 import { io, Socket } from "socket.io-client";
 import * as monaco from "monaco-editor";
 import type { SubmissionUpdateEvent } from "@/types/submission";
-// 📥 1. อิมพอร์ต useSession มาดึงข้อมูลผู้ใช้งานจริง
 import { useSession } from "next-auth/react";
 
 if (typeof window !== "undefined") {
@@ -54,7 +53,7 @@ interface DBSubmission {
   userId: string;
   language: string;
   code: string;
-  status: "Passed" | "Failed";
+  status: "Passed" | "Failed" | "PENDING" | "JUDGING"; // 🎯 เพิ่มสถานะระหว่างโหลด
   executionTime: number;
   memoryUsed: number;
   createdAt: Date;
@@ -85,7 +84,6 @@ function formatDate(d: Date) {
 }
 
 export default function CodingClient({ problem: initialProblem }: { problem: any }) {
-  // 📥 2. ดึงข้อมูลผู้ใช้งานสิทธิ์ล็อกอินจากหน้าบ้าน
   const { data: session } = useSession();
   const userId = session?.user?.id || "anonymous-user";
 
@@ -108,78 +106,105 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const [isDragging, setIsDragging] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
-  const pendingSubmissionId = useRef<string | null>(null);
+  // const pendingSubmissionId = useRef<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+
+  const loadSubmissions = useCallback(async () => {
+    if (!problem || userId === "anonymous-user") return;
+    try {
+      const res = await fetch(`/api/submissions?problemId=${problem.id}&t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      const mapped: DBSubmission[] = data.map((s: any) => ({
+        // ... (ข้อมูลตรงส่วน map เก็บไว้เหมือนเดิมได้เลยครับ) ...
+        id: s.id,
+        problemId: s.problem_id,
+        userId: userId,
+        language: s.language,
+        code: s.source_code,
+        status: s.status === "ACCEPTED" ? "Passed" : 
+               (s.status === "PENDING" || s.status === "JUDGING" ? s.status : "Failed"),
+        executionTime: s.runtime ?? 0,
+        memoryUsed: s.memory ?? 0,
+        createdAt: new Date(s.submitted_at),
+        testCaseResults: (s.test_case_results ?? []).map((tc: any) => ({
+          testCaseId: tc.test_case_id ?? tc.id,
+          status: tc.passed ? "Passed" : "Failed",
+          executionTime: tc.runtime ?? 0,
+          memoryUsed: tc.memory ?? 0,
+          input: "",
+          expectedOutput: tc.expectedOutput ?? null,
+          actualOutput: tc.actual_output ?? null,
+          errorMessage: tc.error_message ?? null,
+        })),
+      }));
+      setSubmissions(mapped);
+
+      // 🎯 ไฮไลต์อยู่ที่นี่: หาว่ามีงานไหนที่ยัง "PENDING" หรือ "JUDGING" ค้างอยู่ไหม
+      const hasPending = mapped.some(s => s.status === "PENDING" || s.status === "JUDGING");
+      
+      // ถ้าไม่มีค้างแล้ว ให้สับสวิตช์ปิดการวนลูปซะ!
+      if (!hasPending && mapped.length > 0) {
+        setIsPolling(false);
+        setRunStatus(mapped[0].status === "Passed" ? "passed" : "failed");
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch submissions", err);
+    }
+  }, [problem, userId]);
+
+  // ── ดึงโจทย์และประวัติการส่งโค้ดทั้งหมดตอนโหลดหน้าเว็บ ──
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const problemId = queryParams.get("id");
+
+    if (problemId) {
+      fetch(`/api/problems/${problemId}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data: ProblemDetail | null) => { if (data) setProblem(data); })
+        .catch(() => {});
+    }
+    loadSubmissions();
+  }, [loadSubmissions]); 
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    // ถ้าสวิตช์ isPolling เปิดอยู่ ให้ยิงถามเซิร์ฟเวอร์ทุกๆ 2 วินาที
+    if (isPolling) {
+      interval = setInterval(() => {
+        loadSubmissions();
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isPolling, loadSubmissions]);
 
   // ── WebSocket Connection Effect ──
   useEffect(() => {
-    if (!session?.user?.id) return; // รอให้ล็อกอินเสร็จก่อนเชื่อมต่อสตรีมคิว
+    if (!session?.user?.id) return; 
 
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      // ✅ 3. ลงทะเบียนเข้าห้อง Socket ส่วนตัวด้วยไอดีจริงจากระบบ Auth
       socket.emit("join", session.user.id);
     });
 
     socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
       if (event.submissionId !== pendingSubmissionId.current) return;
-
-      if (event.status === "JUDGING") {
-        setOutput("⏳ Judging...");
-        return;
-      }
+      if (event.status === "JUDGING") return;
 
       const passed = event.status === "ACCEPTED";
       setRunStatus(passed ? "passed" : "failed");
-      setOutput(
-        passed
-          ? `✅ Accepted! Score: ${event.score}/100` +
-            (event.runtime != null ? ` · ${event.runtime}ms` : "") +
-            (event.memory != null ? ` · ${event.memory}KB` : "")
-          : `❌ ${event.status.replace(/_/g, " ")} · Score: ${event.score}/100`
-      );
-
-      try {
-        const res = await fetch(`/api/submissions/${event.submissionId}`);
-        if (res.ok) {
-          const data = await res.json();
-          // ✅ 4. อัปเดตข้อมูลให้สอดคล้องกับแมปฟีลด์สเน็กเคสของหลังบ้าน
-          const mapped: DBSubmission = {
-            id: data.id,
-            problemId: data.problem_id ?? "",
-            userId: session.user.id,
-            language: data.language,
-            code: data.source_code ?? "",
-            status: data.status === "ACCEPTED" ? "Passed" : "Failed",
-            executionTime: data.runtime ?? 0,
-            memoryUsed: data.memory ?? 0,
-            createdAt: new Date(data.submitted_at),
-            testCaseResults: (data.test_case_results ?? []).map((tc: any) => ({
-              testCaseId: tc.test_case_id ?? tc.id,
-              status: tc.passed ? "Passed" : "Failed",
-              executionTime: tc.runtime ?? 0,
-              memoryUsed: tc.memory ?? 0,
-              input: "",
-              expectedOutput: tc.expectedOutput ?? null,
-              actualOutput: tc.actual_output ?? null,
-              errorMessage: tc.error_message ?? null,
-            })),
-          };
-          setSubmissions((prev) => [mapped, ...prev]);
-        }
-      } catch {
-        // fetch error fallback
-      }
-
+      loadSubmissions(); // อัปเดตข้อมูลจาก DB ทันทีที่ Socket แจ้งว่าเสร็จ
       pendingSubmissionId.current = null;
-      setTab("recent");
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [session]); // บังคับผูกเช็กเมื่อสิทธิ์การรัน Session มีการเปลี่ยนแปลง
+  }, [session, loadSubmissions]); 
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -224,53 +249,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     };
     loadPyodide();
   }, []);
-
-  // ── ดึงโจทย์และประวัติการส่งโค้ดทั้งหมดตอนโหลดหน้าเว็บ ──
-  useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const problemId = queryParams.get("id");
-
-    if (!problemId) return;
-
-    fetch(`/api/problems/${problemId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Network response failure");
-        return res.json();
-      })
-      .then((data: ProblemDetail) => {
-        setProblem(data);
-      })
-      .catch((err) => console.error("Error loading problem profile:", err));
-
-    fetch(`/api/submissions?problemId=${problemId}`)
-      .then((res) => res.ok ? res.json() : [])
-      .then((data: any[]) => {
-        // ✅ 5. ล้างฟีลด์ฝั่งเรียกเก็บประวัติเก่าให้ตรงกับ Property Prisma API
-        const mapped: DBSubmission[] = data.map((s) => ({
-          id: s.id,
-          problemId: s.problem_id,
-          userId: userId,
-          language: s.language,
-          code: s.source_code,
-          status: s.status === "ACCEPTED" ? "Passed" : "Failed",
-          executionTime: s.runtime ?? 0,
-          memoryUsed: s.memory ?? 0,
-          createdAt: new Date(s.submitted_at),
-          testCaseResults: (s.test_case_results ?? []).map((tc: any) => ({
-            testCaseId: tc.test_case_id ?? tc.id,
-            status: tc.passed ? "Passed" : "Failed",
-            executionTime: tc.runtime ?? 0,
-            memoryUsed: tc.memory ?? 0,
-            input: "",
-            expectedOutput: tc.expectedOutput ?? null,
-            actualOutput: tc.actual_output ?? null,
-            errorMessage: tc.error_message ?? null,
-          })),
-        }));
-        setSubmissions(mapped);
-      })
-      .catch(() => {});
-  }, [userId]); // บังคับให้โหลดข้อมูลใหม่เมื่อ User ล็อกอินสำเร็จ
 
   const handleLangChange = (l: string) => {
     setLang(l);
@@ -364,6 +342,9 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     setSubmissionResult([]);
     setOutput("⏳ Submitting...");
     setTerminalTab("output");
+    setTab("recent");
+
+    setIsPolling(true);
 
     try {
       const res = await fetch("/api/submissions", {
@@ -384,28 +365,36 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       }
 
       const { submissionId } = await res.json();
-      pendingSubmissionId.current = submissionId;
-      setOutput("⏳ Queued — waiting for judge...");
+      // pendingSubmissionId.current = submissionId;
+      // loadSubmissions(); // ดึงสถานะ PENDING รอบแรกมาโชว์
+      
+      // สั่งดึงข้อมูลมารอโชว์สถานะ PENDING ใน UI ทันที
+      loadSubmissions();
 
     } catch (e) {
       setOutput(`❌ Network error: ${e instanceof Error ? e.message : String(e)}`);
       setRunStatus("failed");
+      setIsPolling(false);
     }
   };
 
   if (!problem) {
     return (
       <div className="h-screen bg-[#FFF9F0] flex items-center justify-center text-gray-500">
-        Loading challenge engine...
+        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading challenge engine...
       </div>
     );
   }
 
   const recentSub = submissions[0] ?? null;
 
+  // 🎯 การคำนวณจำนวน Test Case
+  const totalCases = recentSub?.testCaseResults?.length || 0;
+  const passedCases = recentSub?.testCaseResults?.filter(tc => tc.status === "Passed").length || 0;
+
   return (
     <div className="h-screen flex flex-col bg-[#FFF9F0] overflow-hidden">
-      <AppNavbar username="Worachot" />
+      <AppNavbar username={session?.user?.name || "User"} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT Panel */}
@@ -468,7 +457,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <div className="flex items-center px-4 py-2.5 bg-white border-b border-[#F5CBA7] gap-3">
             <div className="flex items-center gap-1 bg-[#FFF9F0] rounded-full p-0.5 border border-[#F5CBA7]">
-              {([ "current", "recent", "all" ] as const).map((t) => (
+              {(["current", "recent", "all"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -571,39 +560,64 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     <h2 className="font-display font-bold text-gray-800 text-base">Latest Submission</h2>
                     <span className="text-xs text-gray-400">{formatDate(recentSub.createdAt)}</span>
                   </div>
-                  <div className={cn("rounded-xl p-4 border flex items-center gap-3", recentSub.status === "Passed" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
-                    {recentSub.status === "Passed" ? <CheckCircle className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
+
+                  {/* 🎯 ส่วนแสดงสถานะหลัก โชว์ PENDING/JUDGING/PASSED/FAILED */}
+                  <div className={cn("rounded-xl p-4 border flex items-center gap-3", 
+                    recentSub.status === "Passed" ? "bg-green-50 border-green-200" : 
+                    (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200"
+                  )}>
+                    {recentSub.status === "Passed" ? <CheckCircle className="w-5 h-5 text-green-500" /> : 
+                     (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" /> : 
+                     <XCircle className="w-5 h-5 text-red-500" />}
+                    
                     <div>
-                      <div className={cn("text-sm font-bold", recentSub.status === "Passed" ? "text-green-700" : "text-red-700")}>{recentSub.status === "Passed" ? "Accepted" : "Wrong Answer"}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Runtime: {recentSub.executionTime}ms · Memory: {recentSub.memoryUsed}MB · Language: {recentSub.language}
+                      <div className={cn("text-sm font-bold", 
+                        recentSub.status === "Passed" ? "text-green-700" : 
+                        (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "text-yellow-700" : "text-red-700"
+                      )}>
+                        {recentSub.status === "Passed" ? "Accepted" : 
+                         (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "Judging in Progress..." : "Wrong Answer"}
                       </div>
+                      
+                      {/* 🎯 แสดงจำนวนเคสที่ผ่าน เฉพาะตอนตรวจเสร็จแล้ว */}
+                      {recentSub.status !== "PENDING" && recentSub.status !== "JUDGING" ? (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          Passed {passedCases} / {totalCases} Cases · Runtime: {recentSub.executionTime}ms · Memory: {recentSub.memoryUsed}MB
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          กำลังรันโค้ดและทดสอบ Test Cases...
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Case Details</h3>
-                    {recentSub.testCaseResults.map((res, index) => (
-                      <div key={res.testCaseId} className="bg-gray-50 border rounded-lg p-3 text-xs font-code space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-gray-600">#Case {index + 1}</span>
-                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", res.status === "Passed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>{res.status}</span>
-                        </div>
-                        {res.errorMessage && (
-                          <div className="text-red-500 mt-1">Error: {res.errorMessage}</div>
-                        )}
-                        {res.expectedOutput != null && (
-                          <div className="text-gray-400">
-                            Expected: <span className="text-gray-600">{res.expectedOutput}</span>
-                            {res.actualOutput != null && <> · Got: <span className="text-gray-600">{res.actualOutput}</span></>}
+                  {/* ส่วนรายละเอียด Test Case ย่อย */}
+                  {(recentSub.status !== "PENDING" && recentSub.status !== "JUDGING") && (
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Case Details</h3>
+                      {recentSub.testCaseResults.map((res, index) => (
+                        <div key={res.testCaseId} className="bg-gray-50 border rounded-lg p-3 text-xs font-code space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-gray-600">#Case {index + 1}</span>
+                            <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", res.status === "Passed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>{res.status}</span>
                           </div>
-                        )}
-                        {res.expectedOutput == null && (
-                          <div className="text-gray-300 italic">Hidden test case</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          {res.errorMessage && (
+                            <div className="text-red-500 mt-1">Error: {res.errorMessage}</div>
+                          )}
+                          {res.expectedOutput != null && (
+                            <div className="text-gray-400">
+                              Expected: <span className="text-gray-600">{res.expectedOutput}</span>
+                              {res.actualOutput != null && <> · Got: <span className="text-gray-600">{res.actualOutput}</span></>}
+                            </div>
+                          )}
+                          {res.expectedOutput == null && (
+                            <div className="text-gray-300 italic">Hidden test case</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">
                     <pre className="font-code text-xs text-gray-700 p-4 overflow-x-auto whitespace-pre-wrap">{recentSub.code}</pre>
@@ -622,16 +636,22 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                 <div className="space-y-3">
                   {submissions.map((sub) => {
                     const isExpanded = expandedId === sub.id;
+                    const isProcessing = sub.status === "PENDING" || sub.status === "JUDGING";
+                    
                     return (
                       <div key={sub.id} className="bg-white rounded-xl border border-[#F5CBA7] overflow-hidden shadow-sm">
                         <button onClick={() => setExpandedId(isExpanded ? null : sub.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#FFF9F0] text-left">
-                          <span className={cn("text-xs font-semibold", sub.status === "Passed" ? "text-green-600" : "text-red-500")}>
-                            {sub.status === "Passed" ? "Accepted" : "Wrong Answer"}
+                          <span className={cn("text-xs font-semibold", 
+                            sub.status === "Passed" ? "text-green-600" : 
+                            isProcessing ? "text-yellow-500" : "text-red-500"
+                          )}>
+                            {sub.status === "Passed" ? "Accepted" : 
+                             isProcessing ? "Judging..." : "Wrong Answer"}
                           </span>
                           <span className="text-xs text-gray-400 ml-auto">{formatDate(sub.createdAt)}</span>
                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
-                        {isExpanded && (
+                        {isExpanded && !isProcessing && (
                           <div className="border-t border-[#F5CBA7] bg-[#FFF9F0] p-4 space-y-3">
                             <div className="grid grid-cols-3 gap-2 text-[11px] font-code bg-white/60 p-2 rounded border border-orange-100">
                               <div>🚀 Time: {sub.executionTime}ms</div>
