@@ -249,8 +249,6 @@ export default function CodingClient({ problem }: { problem: any }) {
     loadPyodide();
   }, []);
 
-<<<<<<< HEAD:app/coding/[id]/CodingClient.tsx
-=======
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const problemId = queryParams.get("id");
@@ -302,7 +300,6 @@ export default function CodingClient({ problem }: { problem: any }) {
       .catch(() => {});
   }, []);
 
->>>>>>> feature/Compiling-system:app/coding/page.tsx
   const handleLangChange = (l: string) => {
     setLang(l);
     setCode(STARTER_CODE[l] ?? "");
@@ -393,14 +390,9 @@ export default function CodingClient({ problem }: { problem: any }) {
     }
 
     setRunStatus("running");
-<<<<<<< HEAD:app/coding/[id]/CodingClient.tsx
-    setOutput("Submitting code to fake database engine…");
-    setSubmissionResult([]);
-=======
     setSubmissionResult([]);
     setOutput("⏳ Submitting...");
     setTerminalTab("output");
->>>>>>> feature/Compiling-system:app/coding/page.tsx
 
     try {
       const res = await fetch("/api/submissions", {
@@ -659,11 +651,6 @@ export default function CodingClient({ problem }: { problem: any }) {
               <pre className="font-code text-xs text-gray-700 p-4 overflow-x-auto whitespace-pre-wrap">{recentSub.code}</pre>
             </div>
           </div>
-<<<<<<< HEAD:app/coding/[id]/CodingClient.tsx
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center py-20 text-gray-400 text-sm">No submissions yet</div>
-        )}
-=======
 
           {/* TAB CONTENT: CURRENT */}
           {tab === "current" && (
@@ -808,7 +795,6 @@ export default function CodingClient({ problem }: { problem: any }) {
             </div>
           )}
         </div>
->>>>>>> feature/Compiling-system:app/coding/page.tsx
       </div>
     )
   }
