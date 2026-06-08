@@ -53,7 +53,7 @@ interface DBSubmission {
   userId: string;
   language: string;
   code: string;
-  status: "Passed" | "Failed" | "PENDING" | "JUDGING"; // 🎯 เพิ่มสถานะระหว่างโหลด
+  status: "Passed" | "Failed" | "PENDING" | "JUDGING";
   executionTime: number;
   memoryUsed: number;
   createdAt: Date;
@@ -106,8 +106,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const [isDragging, setIsDragging] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
-  // const pendingSubmissionId = useRef<string | null>(null);
-  const [isPolling, setIsPolling] = useState(false);
+  const pendingSubmissionId = useRef<string | null>(null); // 🎯 นำกลับมาใช้เพื่อติดตามงานปัจจุบัน
 
   const loadSubmissions = useCallback(async () => {
     if (!problem || userId === "anonymous-user") return;
@@ -117,7 +116,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       const data = await res.json();
       
       const mapped: DBSubmission[] = data.map((s: any) => ({
-        // ... (ข้อมูลตรงส่วน map เก็บไว้เหมือนเดิมได้เลยครับ) ...
         id: s.id,
         problemId: s.problem_id,
         userId: userId,
@@ -141,13 +139,12 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       }));
       setSubmissions(mapped);
 
-      // 🎯 ไฮไลต์อยู่ที่นี่: หาว่ามีงานไหนที่ยัง "PENDING" หรือ "JUDGING" ค้างอยู่ไหม
-      const hasPending = mapped.some(s => s.status === "PENDING" || s.status === "JUDGING");
-      
-      // ถ้าไม่มีค้างแล้ว ให้สับสวิตช์ปิดการวนลูปซะ!
-      if (!hasPending && mapped.length > 0) {
-        setIsPolling(false);
-        setRunStatus(mapped[0].status === "Passed" ? "passed" : "failed");
+      // อัปเดตสถานะให้ UI ถ้ารายการล่าสุดตรวจเสร็จแล้ว
+      if (mapped.length > 0) {
+        const latest = mapped[0];
+        if (latest.status !== "PENDING" && latest.status !== "JUDGING") {
+          setRunStatus(latest.status === "Passed" ? "passed" : "failed");
+        }
       }
 
     } catch (err) {
@@ -169,16 +166,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     loadSubmissions();
   }, [loadSubmissions]); 
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    // ถ้าสวิตช์ isPolling เปิดอยู่ ให้ยิงถามเซิร์ฟเวอร์ทุกๆ 2 วินาที
-    if (isPolling) {
-      interval = setInterval(() => {
-        loadSubmissions();
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [isPolling, loadSubmissions]);
+  // 🎯 ตัด useEffect ที่เป็น setInterval (Polling) ออกไปทั้งหมด
 
   // ── WebSocket Connection Effect ──
   useEffect(() => {
@@ -192,13 +180,13 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     });
 
     socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
-      if (event.submissionId !== pendingSubmissionId.current) return;
-      if (event.status === "JUDGING") return;
+      // ทันทีที่หลังบ้านส่งสัญญาณมา ให้เราโหลดข้อมูลจาก DB ใหม่ทันที
+      loadSubmissions();
 
-      const passed = event.status === "ACCEPTED";
-      setRunStatus(passed ? "passed" : "failed");
-      loadSubmissions(); // อัปเดตข้อมูลจาก DB ทันทีที่ Socket แจ้งว่าเสร็จ
-      pendingSubmissionId.current = null;
+      // ถ้ารายการที่ตรวจเสร็จคือรายการที่เรากำลังรออยู่ ให้เคลียร์ ID ทิ้งได้เลย
+      if (event.submissionId === pendingSubmissionId.current && event.status !== "JUDGING" && event.status !== "PENDING") {
+        pendingSubmissionId.current = null;
+      }
     });
 
     return () => {
@@ -344,8 +332,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     setTerminalTab("output");
     setTab("recent");
 
-    setIsPolling(true);
-
     try {
       const res = await fetch("/api/submissions", {
         method: "POST",
@@ -365,8 +351,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       }
 
       const { submissionId } = await res.json();
-      // pendingSubmissionId.current = submissionId;
-      // loadSubmissions(); // ดึงสถานะ PENDING รอบแรกมาโชว์
+      pendingSubmissionId.current = submissionId; // 🎯 เก็บ ID งานที่กำลังส่งไว้ตรวจสอบ
       
       // สั่งดึงข้อมูลมารอโชว์สถานะ PENDING ใน UI ทันที
       loadSubmissions();
@@ -374,7 +359,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     } catch (e) {
       setOutput(`❌ Network error: ${e instanceof Error ? e.message : String(e)}`);
       setRunStatus("failed");
-      setIsPolling(false);
     }
   };
 
@@ -388,7 +372,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
 
   const recentSub = submissions[0] ?? null;
 
-  // 🎯 การคำนวณจำนวน Test Case
   const totalCases = recentSub?.testCaseResults?.length || 0;
   const passedCases = recentSub?.testCaseResults?.filter(tc => tc.status === "Passed").length || 0;
 
@@ -561,7 +544,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     <span className="text-xs text-gray-400">{formatDate(recentSub.createdAt)}</span>
                   </div>
 
-                  {/* 🎯 ส่วนแสดงสถานะหลัก โชว์ PENDING/JUDGING/PASSED/FAILED */}
                   <div className={cn("rounded-xl p-4 border flex items-center gap-3", 
                     recentSub.status === "Passed" ? "bg-green-50 border-green-200" : 
                     (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200"
@@ -579,7 +561,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                          (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "Judging in Progress..." : "Wrong Answer"}
                       </div>
                       
-                      {/* 🎯 แสดงจำนวนเคสที่ผ่าน เฉพาะตอนตรวจเสร็จแล้ว */}
                       {recentSub.status !== "PENDING" && recentSub.status !== "JUDGING" ? (
                         <div className="text-xs text-gray-500 mt-0.5">
                           Passed {passedCases} / {totalCases} Cases · Runtime: {recentSub.executionTime}ms · Memory: {recentSub.memoryUsed}MB
@@ -592,7 +573,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     </div>
                   </div>
 
-                  {/* ส่วนรายละเอียด Test Case ย่อย */}
                   {(recentSub.status !== "PENDING" && recentSub.status !== "JUDGING") && (
                     <div className="space-y-2">
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Case Details</h3>
