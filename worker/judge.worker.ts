@@ -2,17 +2,17 @@
  * BullMQ judge worker.
  *
  * Flow (per CLAUDE.md):
- * 1. update submission -> JUDGING
- * 2. emit JUDGING socket event
- * 3. fetch Problem + TestCase[] (including hidden)
- * 4. submit all test cases to Judge0 in parallel
- * 5. poll until all verdicts ready
- * 6. map verdict -> results[]
- * 7. score = (passed / total) * 100
- * 8. if any stdout > 10KB -> upload to MinIO -> resultUrl
- * 9. update Submission in DB
- * 10. upsert LeaderboardEntry + Redis ZSET
- * 11. emit final socket event
+ *   1. update submission -> JUDGING
+ *   2. emit JUDGING socket event
+ *   3. fetch Problem + TestCase[] (including hidden)
+ *   4. submit all test cases to Judge0 in parallel
+ *   5. poll until all verdicts ready
+ *   6. map verdict -> results[]
+ *   7. score = (passed / total) * 100
+ *   8. if any stdout > 10KB -> upload to MinIO -> resultUrl
+ *   9. update Submission in DB
+ *  10. upsert LeaderboardEntry + Redis ZSET
+ *  11. emit final socket event
  *
  * Run: `npx tsx worker/judge.worker.ts`
  */
@@ -41,16 +41,11 @@ import {
   upsertLeaderboardEntry,
   type TestCaseDTO,
 } from "@/lib/db/judge-prisma-store";
+import { emitSubmissionUpdate } from "@/lib/socket";
 import {
   shouldOffload,
   uploadLargeOutput,
 } from "@/lib/minio";
-
-// 🎯 1. อิมพอร์ต Socket.io Client เข้ามาใช้งาน
-import { io } from "socket.io-client";
-
-// 🎯 2. สร้างการเชื่อมต่อไปยัง Socket Server (พอร์ต 3001)
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001");
 
 type ResultRow = SubmissionResult["results"][number];
 
@@ -148,10 +143,7 @@ async function processJob(job: Job<JudgeJobPayload>) {
 
   // 1 + 2: JUDGING
   await setSubmissionStatus(submissionId, "JUDGING");
-  
-  // 🎯 3. ยิง Socket บอกว่า "กำลังตรวจอยู่ (JUDGING)"
-  socket.emit("worker:submission:update", {
-    userId, // จ่าหน้าซองถึงเจ้าของโค้ด
+  emitSubmissionUpdate(userId, {
     submissionId,
     status: "JUDGING",
     score: 0,
@@ -222,9 +214,8 @@ async function processJob(job: Job<JudgeJobPayload>) {
   // ZADD only updates if the new score is higher (GT) so we keep the best.
   await redis.zadd(LEADERBOARD_KEY(problemId), "GT", score, userId);
 
-  // 🎯 11. ยิง Socket สรุปผลสุดท้ายบอกหน้าเว็บ (ACCEPTED / FAILED)
-  socket.emit("worker:submission:update", {
-    userId, // จ่าหน้าซองถึงเจ้าของโค้ด
+  // 11: final emit
+  emitSubmissionUpdate(userId, {
     submissionId,
     status,
     score,
