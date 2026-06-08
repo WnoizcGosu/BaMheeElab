@@ -1,56 +1,50 @@
 // app/api/register/route.ts
 import { NextResponse } from "next/server";
-import { findUserByUsername, findUserByEmail, createUser } from "@/lib/db/mock-users";
-// 📥 1. อิมพอร์ต prisma client เพื่อเขียนลง PostgreSQL คู่กัน
 import { prisma } from "@/lib/prisma"; 
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    
-    // 🔍 DEBUG LINE
-    console.log("==========================================");
-    console.log("[API INCOMING] POST Request received at /api/register");
-    console.log(`[API PAYLOAD] Username: ${body.username} | Email: ${body.email}`);
-    console.log("==========================================");
-
     const { username, email, password } = body;
 
+    // 🔍 1. ตรวจสอบว่าส่งข้อมูลมาครบถ้วนไหม
     if (!username || !email || !password) {
-      console.log("[API VALIDATION FAIL] Missing required registration fields.");
       return NextResponse.json({ error: "All fields are required" }, { status: 400 });
     }
 
-    const existingUsername = await findUserByUsername(username);
+    // 🔍 2. ตรวจสอบว่า Username นี้ถูกใช้งานไปแล้วหรือยัง (เช็คจากฟิลด์ name)
+    const existingUsername = await prisma.user.findFirst({
+      where: { name: username }
+    });
     if (existingUsername) {
-      console.log(`[API REJECTED] Username "${username}" already exists in local JSON file.`);
       return NextResponse.json({ error: "Username is already taken" }, { status: 400 });
     }
 
-    const existingEmail = await findUserByEmail(email);
+    // 🔍 3. ตรวจสอบว่า Email นี้ถูกใช้งานไปแล้วหรือยัง
+    const existingEmail = await prisma.user.findUnique({
+      where: { email: email }
+    });
     if (existingEmail) {
-      console.log(`[API REJECTED] Email "${email}" already registered.`);
       return NextResponse.json({ error: "Email is already registered" }, { status: 400 });
     }
 
-    // 📝 2. บันทึกลงในไฟล์ JSON (จากระบบเดิม)
-    // แนะนำ: ให้ตรวจสอบในฟังก์ชัน `createUser` ของคุณว่ามันทำการ return ออบเจกต์ผู้ใช้ที่มีค่า id ออกมาด้วยไหม 
-    // ตัวอย่าง: const savedUser = await createUser({ username, email, password });
-    const savedUser = await createUser({ username, email, password });
+    // 💡 หากต้องการเข้ารหัสผ่านก่อนบันทึก ให้ใช้โค้ดชุดนี้แทน:
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 📝 3. สั่งซิงค์เขียนลงตาราง User ของ PostgreSQL ทันที
-    // โดยแมปรหัส ID ให้ตรงกับที่ฟังก์ชันสมัครฝั่ง JSON สุ่มสร้างขึ้นมา
+    // 📝 4. บันทึกผู้ใช้ใหม่ลง PostgreSQL ด้วย Prisma ล้วนๆ
     await prisma.user.create({
       data: {
-        id: savedUser.id, // 👈 ล็อกรหัส ID เดียวกันเพื่อเป็นสะพานเชื่อม Foreign Key
-        email: email,
         name: username,
-        role: "USER"       // ตั้งสิทธิ์เริ่มต้นเป็นนักเรียนตาม Enum ของ Prisma
+        email: email,
+        password: hashedPassword,
+        role: "USER"
       }
     });
 
-    console.log(`[API SUCCESS] Registration complete for user: ${username} (Synced to PostgreSQL)`);
+    console.log(`[API SUCCESS] Registration complete for user: ${username} via Prisma`);
     return NextResponse.json({ message: "Account created successfully!" }, { status: 201 });
+
   } catch (error) {
     console.error("[API CRASH] Registration endpoint failed:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
