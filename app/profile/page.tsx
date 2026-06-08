@@ -1,12 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
 import { useSession, signOut } from "next-auth/react";
+
+// ── TYPESCRIPT INTERFACES ──
+interface ActivityItem {
+  id: string;
+  problem: string;
+  status: "solved" | "attempted" | string;
+  submittedAt: string | Date;
+  difficulty: "Easy" | "Medium" | "Hard" | string;
+  lang: string;
+}
+
+interface StatItem {
+  label: string;
+  count: number;
+  color?: string;
+}
+
+interface ProfileStats {
+  totalSolved: number;
+  recentActivity: ActivityItem[];
+  languageStats: StatItem[];
+  difficultyStats: StatItem[];
+}
 
 // ฟังก์ชันแปลงวันที่ให้เป็น "2h ago", "1d ago"
 function timeAgo(dateString: string | Date) {
@@ -26,12 +50,12 @@ function timeAgo(dateString: string | Date) {
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   
-  // State สำหรับเก็บข้อมูลจาก Database
-  const [stats, setStats] = useState({
+  // State สำหรับเก็บข้อมูลจาก Database พร้อมใส่ Type ป้องกัน Error Any
+  const [stats, setStats] = useState<ProfileStats>({
     totalSolved: 0,
-    recentActivity: [] as any[],
-    languageStats: [] as any[],
-    difficultyStats: [] as any[],
+    recentActivity: [],
+    languageStats: [],
+    difficultyStats: [],
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
@@ -40,7 +64,7 @@ export default function ProfilePage() {
     if (status === "authenticated") {
       fetch("/api/profile")
         .then((res) => res.json())
-        .then((data) => {
+        .then((data: ProfileStats) => {
           setStats(data);
           setIsLoadingStats(false);
         })
@@ -56,14 +80,14 @@ export default function ProfilePage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#FFF9F0] flex items-center justify-center text-sm font-sans text-gray-500">
+      <div className="min-h-screen bg-brand-cream flex items-center justify-center text-sm font-sans text-gray-500">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading profile...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF9F0]">
+    <div className="min-h-screen bg-brand-cream">
       <AppNavbar username={fullName} />
 
       <main className="max-w-5xl mx-auto px-6 py-8">
@@ -77,14 +101,16 @@ export default function ProfilePage() {
 
               <div className="flex items-start gap-4 relative z-10">
                 {session?.user?.image ? (
-                  <img
+                  <Image
                     src={session.user.image}
                     alt={fullName}
+                    width={64}
+                    height={64}
                     className="w-16 h-16 rounded-xl border-2 border-white/30 object-cover"
-                    referrerPolicy="no-referrer" 
+                    unoptimized // ใส่ไว้กันเหนียว เผื่อรูปโปรไฟล์ดึงมาจาก Google Auth แล้วไม่ได้ตั้งค่า config
                   />
                 ) : (
-                  <div className="w-16 h-16 bg-[#F5CBA7] rounded-xl border-2 border-white/30 flex items-center justify-center text-brand-red font-bold text-2xl font-display">
+                  <div className="w-16 h-16 bg-wave-tan rounded-xl border-2 border-white/30 flex items-center justify-center text-brand-red font-bold text-2xl font-display">
                     {userInitial}
                   </div>
                 )}
@@ -118,8 +144,8 @@ export default function ProfilePage() {
           <div className="md:col-span-2 space-y-5">
             
             {/* Recent activity */}
-            <div className="bg-white rounded-2xl border border-[#F5CBA7] shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#F5CBA7] flex items-center justify-between">
+            <div className="bg-white rounded-2xl border border-wave-tan shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-wave-tan flex items-center justify-between">
                 <h3 className="font-display font-bold text-sm text-gray-800">Recent Submissions</h3>
                 <Link href="/problems">
                   <Button variant="ghost" size="sm" className="text-xs h-7">
@@ -128,15 +154,15 @@ export default function ProfilePage() {
                 </Link>
               </div>
 
-              <div className="divide-y divide-[#F5CBA7]/50">
+              <div className="divide-y divide-wave-tan/50">
                 {isLoadingStats ? (
                   <div className="p-8 text-center text-xs text-gray-400">Loading activity...</div>
                 ) : stats.recentActivity.length === 0 ? (
                   <div className="p-8 text-center text-xs text-gray-400">No recent activity yet.</div>
                 ) : (
                   stats.recentActivity.map((item, idx) => (
-                    <div key={idx} className="px-6 py-3.5 flex items-center gap-4 hover:bg-[#FFF9F0] transition-colors">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    <div key={idx} className="px-6 py-3.5 flex items-center gap-4 hover:bg-brand-cream transition-colors">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${
                         item.status === "solved" ? "bg-green-400" : "bg-yellow-400"
                       }`} />
                       <div className="flex-1 min-w-0">
@@ -147,7 +173,7 @@ export default function ProfilePage() {
                         </Link>
                         <div className="text-xs text-gray-400 mt-0.5">{timeAgo(item.submittedAt)}</div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Badge
                           variant={item.difficulty.toLowerCase() as "easy" | "medium" | "hard"}
                           className="text-[10px]"
@@ -163,7 +189,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Solve distribution */}
-            <div className="bg-white rounded-2xl p-6 border border-[#F5CBA7] shadow-sm">
+            <div className="bg-white rounded-2xl p-6 border border-wave-tan shadow-sm">
               <h3 className="font-display font-bold text-sm text-gray-800 mb-4">Difficulty Distribution</h3>
               <div className="flex items-center gap-4">
                 {isLoadingStats ? (

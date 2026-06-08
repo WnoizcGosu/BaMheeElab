@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft, Play, Send, ChevronDown,
   CheckCircle, XCircle, Clock, Terminal, ChevronUp, Code2,
-  Check, Loader2
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,41 @@ import { useSession } from "next-auth/react";
 
 if (typeof window !== "undefined") {
   loader.config({ monaco });
+}
+
+// ── TYPESCRIPT INTERFACES ──
+interface Pyodide {
+  runPythonAsync: (code: string) => Promise<void>;
+  setStdout: (opts: { batched: (text: string) => void }) => void;
+  setStdin: (opts: { stdin: () => string }) => void;
+}
+
+interface CustomWindow extends Window {
+  pyodideInstance?: Pyodide;
+  loadPyodide?: () => Promise<Pyodide>;
+}
+
+interface RawTestCase {
+  id?: string;
+  test_case_id?: string;
+  passed: boolean;
+  runtime?: number;
+  memory?: number;
+  expectedOutput?: string;
+  actual_output?: string;
+  error_message?: string;
+}
+
+interface RawSubmission {
+  id: string;
+  problem_id: string;
+  language: string;
+  source_code: string;
+  status: string;
+  runtime?: number;
+  memory?: number;
+  submitted_at: string;
+  test_case_results?: RawTestCase[];
 }
 
 const LANGUAGES = ["Python", "C", "C++"];
@@ -83,11 +118,11 @@ function formatDate(d: Date) {
     " · " + dateObj.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function CodingClient({ problem: initialProblem }: { problem: any }) {
+export default function CodingClient({ problem: initialProblem }: { problem: ProblemDetail | null }) {
   const { data: session } = useSession();
   const userId = session?.user?.id || "anonymous-user";
 
-  const [problem, setProblem] = useState<any>(initialProblem);
+  const [problem, setProblem] = useState<ProblemDetail | null>(initialProblem);
   const [lang, setLang] = useState("Python");
   const [code, setCode] = useState(STARTER_CODE["Python"]);
   const [tab, setTab] = useState<"current" | "recent" | "all">("current");
@@ -96,7 +131,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [submissions, setSubmissions] = useState<DBSubmission[]>([]);
-  const [submissionResult, setSubmissionResult] = useState<("T" | "F")[]>([]);
 
   const [isPyodideReady, setIsPyodideReady] = useState(false);
   const [customInput, setCustomInput] = useState("");
@@ -106,7 +140,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const [isDragging, setIsDragging] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
-  const pendingSubmissionId = useRef<string | null>(null); // 🎯 นำกลับมาใช้เพื่อติดตามงานปัจจุบัน
+  const pendingSubmissionId = useRef<string | null>(null);
 
   const loadSubmissions = useCallback(async () => {
     if (!problem || userId === "anonymous-user") return;
@@ -115,7 +149,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       if (!res.ok) return;
       const data = await res.json();
       
-      const mapped: DBSubmission[] = data.map((s: any) => ({
+      const mapped: DBSubmission[] = data.map((s: RawSubmission) => ({
         id: s.id,
         problemId: s.problem_id,
         userId: userId,
@@ -126,8 +160,8 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         executionTime: s.runtime ?? 0,
         memoryUsed: s.memory ?? 0,
         createdAt: new Date(s.submitted_at),
-        testCaseResults: (s.test_case_results ?? []).map((tc: any) => ({
-          testCaseId: tc.test_case_id ?? tc.id,
+        testCaseResults: (s.test_case_results ?? []).map((tc: RawTestCase) => ({
+          testCaseId: tc.test_case_id ?? tc.id ?? "unknown",
           status: tc.passed ? "Passed" : "Failed",
           executionTime: tc.runtime ?? 0,
           memoryUsed: tc.memory ?? 0,
@@ -139,7 +173,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       }));
       setSubmissions(mapped);
 
-      // อัปเดตสถานะให้ UI ถ้ารายการล่าสุดตรวจเสร็จแล้ว
       if (mapped.length > 0) {
         const latest = mapped[0];
         if (latest.status !== "PENDING" && latest.status !== "JUDGING") {
@@ -152,7 +185,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     }
   }, [problem, userId]);
 
-  // ── ดึงโจทย์และประวัติการส่งโค้ดทั้งหมดตอนโหลดหน้าเว็บ ──
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const problemId = queryParams.get("id");
@@ -163,12 +195,11 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         .then((data: ProblemDetail | null) => { if (data) setProblem(data); })
         .catch(() => {});
     }
+    
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSubmissions();
   }, [loadSubmissions]); 
 
-  // 🎯 ตัด useEffect ที่เป็น setInterval (Polling) ออกไปทั้งหมด
-
-  // ── WebSocket Connection Effect ──
   useEffect(() => {
     if (!session?.user?.id) return; 
 
@@ -180,10 +211,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     });
 
     socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
-      // ทันทีที่หลังบ้านส่งสัญญาณมา ให้เราโหลดข้อมูลจาก DB ใหม่ทันที
       loadSubmissions();
-
-      // ถ้ารายการที่ตรวจเสร็จคือรายการที่เรากำลังรออยู่ ให้เคลียร์ ID ทิ้งได้เลย
       if (event.submissionId === pendingSubmissionId.current && event.status !== "JUDGING" && event.status !== "PENDING") {
         pendingSubmissionId.current = null;
       }
@@ -218,7 +246,8 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
 
   useEffect(() => {
     const loadPyodide = async () => {
-      if ((window as any).pyodideInstance) {
+      const win = window as unknown as CustomWindow;
+      if (win.pyodideInstance) {
         setIsPyodideReady(true);
         return;
       }
@@ -226,9 +255,11 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         const script = document.createElement("script");
         script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
         script.onload = async () => {
-          const pyodide = await (window as any).loadPyodide();
-          (window as any).pyodideInstance = pyodide;
-          setIsPyodideReady(true);
+          if (win.loadPyodide) {
+            const pyodide = await win.loadPyodide();
+            win.pyodideInstance = pyodide;
+            setIsPyodideReady(true);
+          }
         };
         document.body.appendChild(script);
       } catch (err) {
@@ -243,7 +274,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     setCode(STARTER_CODE[l] ?? "");
     setRunStatus("idle");
     setOutput("");
-    setSubmissionResult([]);
   };
 
   const getMonacoLanguage = (displayLang: string) => {
@@ -253,9 +283,9 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     }
   };
 
-  const handleEditorMount = (editor: any, monaco: any) => {
-    monaco.languages.registerCompletionItemProvider("python", {
-      provideCompletionItems: (model: any, position: any) => {
+  const handleEditorMount = (editor: monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof monaco) => {
+    monacoInstance.languages.registerCompletionItemProvider("python", {
+      provideCompletionItems: (model, position) => {
         const word = model.getWordUntilPosition(position);
         const range = {
           startLineNumber: position.lineNumber,
@@ -265,12 +295,12 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
         };
 
         const pythonKeywords = [
-          { label: "print", kind: monaco.languages.CompletionItemKind.Function, insertText: "print($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "พิมพ์ข้อมูลออกทางหน้าจอ", range },
-          { label: "input", kind: monaco.languages.CompletionItemKind.Function, insertText: "input($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "รับข้อมูลจากคีย์บอร์ด", range },
-          { label: "len", kind: monaco.languages.CompletionItemKind.Function, insertText: "len($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
-          { label: "range", kind: monaco.languages.CompletionItemKind.Function, insertText: "range($1)", insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
-          { label: "def", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "def ", range },
-          { label: "import", kind: monaco.languages.CompletionItemKind.Keyword, insertText: "import ", range },
+          { label: "print", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "print($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "พิมพ์ข้อมูลออกทางหน้าจอ", range },
+          { label: "input", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "input($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "รับข้อมูลจากคีย์บอร์ด", range },
+          { label: "len", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "len($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "range", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "range($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "def", kind: monacoInstance.languages.CompletionItemKind.Keyword, insertText: "def ", range },
+          { label: "import", kind: monacoInstance.languages.CompletionItemKind.Keyword, insertText: "import ", range },
         ];
         return { suggestions: pythonKeywords };
       },
@@ -280,7 +310,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const handleRun = async () => {
     setRunStatus("running");
     setTerminalTab("output");
-    setSubmissionResult([]);
 
     if (lang !== "Python") {
       setOutput(`Error: Browser execution is currently only supported for Python.`);
@@ -294,7 +323,15 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       return;
     }
 
-    const pyodide = (window as any).pyodideInstance;
+    const win = window as unknown as CustomWindow;
+    const pyodide = win.pyodideInstance;
+    
+    if (!pyodide) {
+      setOutput("Pyodide instance is not available.");
+      setRunStatus("failed");
+      return;
+    }
+
     let currentOutput = "";
     const inputLines = customInput.split('\n');
     let inputIndex = 0;
@@ -312,8 +349,12 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       await pyodide.runPythonAsync(code);
       setOutput(currentOutput || "Code executed successfully. (No output)");
       setRunStatus("passed");
-    } catch (error: any) {
-      setOutput(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setOutput(error.message);
+      } else {
+        setOutput(String(error));
+      }
       setRunStatus("failed");
     }
   };
@@ -327,7 +368,6 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
     }
 
     setRunStatus("running");
-    setSubmissionResult([]);
     setOutput("⏳ Submitting...");
     setTerminalTab("output");
     setTab("recent");
@@ -351,12 +391,11 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
       }
 
       const { submissionId } = await res.json();
-      pendingSubmissionId.current = submissionId; // 🎯 เก็บ ID งานที่กำลังส่งไว้ตรวจสอบ
+      pendingSubmissionId.current = submissionId; 
       
-      // สั่งดึงข้อมูลมารอโชว์สถานะ PENDING ใน UI ทันที
       loadSubmissions();
 
-    } catch (e) {
+    } catch (e: unknown) {
       setOutput(`❌ Network error: ${e instanceof Error ? e.message : String(e)}`);
       setRunStatus("failed");
     }
@@ -364,7 +403,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
 
   if (!problem) {
     return (
-      <div className="h-screen bg-[#FFF9F0] flex items-center justify-center text-gray-500">
+      <div className="h-screen bg-brand-cream flex items-center justify-center text-gray-500">
         <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading challenge engine...
       </div>
     );
@@ -376,13 +415,13 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
   const passedCases = recentSub?.testCaseResults?.filter(tc => tc.status === "Passed").length || 0;
 
   return (
-    <div className="h-screen flex flex-col bg-[#FFF9F0] overflow-hidden">
+    <div className="h-screen flex flex-col bg-brand-cream overflow-hidden">
       <AppNavbar username={session?.user?.name || "User"} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT Panel */}
-        <div className="w-[400px] flex-shrink-0 flex flex-col bg-white border-r border-[#F5CBA7] overflow-hidden">
-          <div className="px-5 pt-5 pb-4 border-b border-[#F5CBA7]">
+        <div className="w-100 shrink-0 flex flex-col bg-white border-r border-wave-tan overflow-hidden">
+          <div className="px-5 pt-5 pb-4 border-b border-wave-tan">
             <Link href="/problems">
               <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-red mb-3 transition-colors">
                 <ChevronLeft className="w-3 h-3" /> back
@@ -390,7 +429,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
             </Link>
             <h1 className="font-display text-xl font-bold text-gray-900 mb-2">{problem.title}</h1>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={problem.difficulty?.toLowerCase() as any || "easy"}>
+              <Badge variant={(problem.difficulty?.toLowerCase() as "easy" | "medium" | "hard") || "default"}>
                 {problem.difficulty}
               </Badge>
               {problem.tags?.map((t: string) => (
@@ -411,7 +450,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                 {problem.constraints?.map((c: string) => (
                   <li key={c} className="flex items-start gap-2">
                     <span className="text-brand-red mt-0.5">•</span>
-                    <code className="font-code text-xs bg-[#FFF9F0] px-1.5 py-0.5 rounded">{c}</code>
+                    <code className="font-code text-xs bg-brand-cream px-1.5 py-0.5 rounded">{c}</code>
                   </li>
                 ))}
               </ul>
@@ -419,8 +458,8 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
             {problem.examples?.map((ex: Example, i: number) => (
               <div key={i}>
                 <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
-                <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">
-                  <div className="grid grid-cols-2 divide-x divide-[#F5CBA7]">
+                <div className="bg-brand-cream rounded-xl border border-wave-tan overflow-hidden">
+                  <div className="grid grid-cols-2 divide-x divide-wave-tan">
                     <div className="p-3 min-w-0 overflow-x-auto">
                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Input</div>
                       <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.input}</code>
@@ -438,8 +477,8 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
 
         {/* RIGHT Panel */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          <div className="flex items-center px-4 py-2.5 bg-white border-b border-[#F5CBA7] gap-3">
-            <div className="flex items-center gap-1 bg-[#FFF9F0] rounded-full p-0.5 border border-[#F5CBA7]">
+          <div className="flex items-center px-4 py-2.5 bg-white border-b border-wave-tan gap-3">
+            <div className="flex items-center gap-1 bg-brand-cream rounded-full p-0.5 border border-wave-tan">
               {(["current", "recent", "all"] as const).map((t) => (
                 <button
                   key={t}
@@ -459,7 +498,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                 <select
                   value={lang}
                   onChange={(e) => handleLangChange(e.target.value)}
-                  className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-[#FFF9F0] border border-[#F5CBA7] rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-red cursor-pointer"
+                  className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-brand-cream border border-wave-tan rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-red cursor-pointer"
                 >
                   {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
@@ -505,18 +544,18 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
               </div>
 
               <div
-                className={cn("h-1.5 bg-[#F5CBA7] cursor-row-resize flex items-center justify-center transition-colors hover:bg-brand-red", isDragging && "bg-brand-red")}
+                className={cn("h-1.5 bg-wave-tan cursor-row-resize flex items-center justify-center transition-colors hover:bg-brand-red", isDragging && "bg-brand-red")}
                 onMouseDown={() => setIsDragging(true)}
               >
                 <div className="w-8 h-0.5 bg-white/50 rounded-full" />
               </div>
 
               <div className="bg-white flex flex-col" style={{ height: `${terminalHeight}px` }}>
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F5CBA7] bg-[#FFF9F0] flex-shrink-0">
-                  <button onClick={() => setTerminalTab("output")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "output" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}>
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-wave-tan bg-brand-cream shrink-0">
+                  <button onClick={() => setTerminalTab("output")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "output" ? "text-gray-800 bg-wave-tan/30" : "text-gray-500 hover:text-gray-700")}>
                     <Terminal className="w-4 h-4" /> Output
                   </button>
-                  <button onClick={() => setTerminalTab("input")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "input" ? "text-gray-800 bg-[#F5CBA7]/30" : "text-gray-500 hover:text-gray-700")}>
+                  <button onClick={() => setTerminalTab("input")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "input" ? "text-gray-800 bg-wave-tan/30" : "text-gray-500 hover:text-gray-700")}>
                     <Code2 className="w-4 h-4" /> Custom Input
                   </button>
                 </div>
@@ -599,7 +638,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     </div>
                   )}
 
-                  <div className="bg-[#FFF9F0] rounded-xl border border-[#F5CBA7] overflow-hidden">
+                  <div className="bg-brand-cream rounded-xl border border-wave-tan overflow-hidden">
                     <pre className="font-code text-xs text-gray-700 p-4 overflow-x-auto whitespace-pre-wrap">{recentSub.code}</pre>
                   </div>
                 </div>
@@ -619,8 +658,8 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                     const isProcessing = sub.status === "PENDING" || sub.status === "JUDGING";
                     
                     return (
-                      <div key={sub.id} className="bg-white rounded-xl border border-[#F5CBA7] overflow-hidden shadow-sm">
-                        <button onClick={() => setExpandedId(isExpanded ? null : sub.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#FFF9F0] text-left">
+                      <div key={sub.id} className="bg-white rounded-xl border border-wave-tan overflow-hidden shadow-sm">
+                        <button onClick={() => setExpandedId(isExpanded ? null : sub.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-cream text-left">
                           <span className={cn("text-xs font-semibold", 
                             sub.status === "Passed" ? "text-green-600" : 
                             isProcessing ? "text-yellow-500" : "text-red-500"
@@ -632,7 +671,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: any
                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
                         {isExpanded && !isProcessing && (
-                          <div className="border-t border-[#F5CBA7] bg-[#FFF9F0] p-4 space-y-3">
+                          <div className="border-t border-wave-tan bg-brand-cream p-4 space-y-3">
                             <div className="grid grid-cols-3 gap-2 text-[11px] font-code bg-white/60 p-2 rounded border border-orange-100">
                               <div>🚀 Time: {sub.executionTime}ms</div>
                               <div>📦 Memory: {sub.memoryUsed}MB</div>
