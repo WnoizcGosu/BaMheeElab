@@ -229,6 +229,7 @@ async function processJob(job: Job<JudgeJobPayload>) {
 }
 
 const worker = new Worker<JudgeJobPayload>(JUDGE_QUEUE_NAME, processJob, {
+  // @ts-expect-error: bullmq and ioredis type mismatch
   connection: createBlockingConnection(),
   concurrency: Number(process.env.JUDGE_WORKER_CONCURRENCY || 4),
 });

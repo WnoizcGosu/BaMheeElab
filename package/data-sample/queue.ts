@@ -9,8 +9,9 @@ declare global {
   var __judgeQueue: Queue<JudgeJobPayload> | undefined;
 }
 
+// @ts-expect-error: bullmq and ioredis type mismatch
 export const judgeQueue: Queue<JudgeJobPayload> =
-  global.__judgeQueue ??
+  // @ts-expect-error: bullmq and ioredis type mismatch
   new Queue<JudgeJobPayload>(JUDGE_QUEUE_NAME, { connection: redis });
 
 if (process.env.NODE_ENV !== "production") global.__judgeQueue = judgeQueue;

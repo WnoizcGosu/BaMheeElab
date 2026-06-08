@@ -76,6 +76,7 @@ export const authOptions: AuthOptions = {
             username: finalUsername,
             email: user.email,
             password: crypto.randomUUID(), 
+            // @ts-expect-error: Custom role field from database
             role: "USER",
           });
           return true; 
