@@ -23,13 +23,16 @@ export async function GET() {
     // 2. คำนวณ "ข้อที่ผ่านแล้ว" (Unique Solved Problems)
     const solvedProblemIds = new Set(
       submissions
-        .filter((s) => s.status === "ACCEPTED")
-        .map((s) => s.problem_id)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((s: any) => s.status === "ACCEPTED")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((s: any) => s.problem_id)
     );
     const totalSolved = solvedProblemIds.size;
 
     // 3. ประวัติล่าสุด (Recent Activity) - เอาแค่ 5 รายการแรก
-    const recentActivity = submissions.slice(0, 5).map((s) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recentActivity = submissions.slice(0, 5).map((s: any) => ({
       id: s.id,
       problem: s.problem.title,
       difficulty: s.problem.difficulty,
@@ -45,7 +48,8 @@ export async function GET() {
     // ใช้ Set เพื่อไม่ให้นับข้อเดิมซ้ำ
     const countedProblemsForStats = new Set<string>();
 
-    submissions.forEach((s) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    submissions.forEach((s: any) => {
       if (s.status === "ACCEPTED" && !countedProblemsForStats.has(s.problem_id)) {
         countedProblemsForStats.add(s.problem_id);
         
