@@ -110,6 +110,16 @@ async function judgeOneTestCase(
     callback_url: callbackUrl,
   });
 
+  console.log("DEBUG_PAYLOAD:", JSON.stringify({
+    source_code: sourceCode,
+    language_id: LANGUAGE_ID[language],
+    stdin: tc.input,
+    expected_output: tc.expectedOutput,
+    cpu_time_limit: Math.max(1, Math.ceil(timeLimitMs / 1000)),
+    memory_limit: memoryLimitMb * 1024, // MB -> KB
+    callback_url: callbackUrl,
+  }, null, 2));
+
   const r: Judge0Result = await waitForJudge0(token);
   const status = mapJudge0Status(r.status.id, r.status.description);
   const passed = status === "ACCEPTED";
