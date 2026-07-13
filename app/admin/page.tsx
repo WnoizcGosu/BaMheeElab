@@ -17,88 +17,52 @@ export default async function AdminDashboard() {
   ).length;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px" }}>
+    <div className="max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">
         Dashboard
       </h1>
-      <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 28 }}>
+      <p className="text-sm text-gray-600 mb-8">
         Welcome back, Admin. Manage problems and test cases from here.
       </p>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 28,
-        }}
-      >
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>Total Problems</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "var(--accent-orange)" }}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 transition-all duration-200 hover:shadow-md">
+          <div className="text-sm text-gray-500 mb-2 font-medium">Total Problems</div>
+          <div className="text-3xl font-bold text-brand-orange">
             {problems.length}
           </div>
         </div>
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>Programming</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "var(--text-primary)" }}>{programmingCount}</div>
+        <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 transition-all duration-200 hover:shadow-md">
+          <div className="text-sm text-gray-500 mb-2 font-medium">Programming</div>
+          <div className="text-3xl font-bold text-gray-900">{programmingCount}</div>
         </div>
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>Statistical</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "var(--text-primary)" }}>{statCount}</div>
+        <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 transition-all duration-200 hover:shadow-md">
+          <div className="text-sm text-gray-500 mb-2 font-medium">Statistical</div>
+          <div className="text-3xl font-bold text-gray-900">{statCount}</div>
         </div>
       </div>
 
-      <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 14 }}>
+      <h2 className="text-lg font-bold text-gray-900 mb-4">
         Quick Actions
       </h2>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+      <div className="flex flex-wrap gap-4">
         <Link
           href="/admin/problems/create"
-          className="flex items-center gap-2"
-          style={{
-            padding: "12px 20px",
-            background: "linear-gradient(135deg, #E8652B, #D4541E)",
-            color: "white",
-            borderRadius: "var(--radius-md)",
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
         >
           <Plus size={18} />
           Create Problem
         </Link>
         <Link
           href="/admin/problems?category=Programming"
-          className="flex items-center gap-2"
-          style={{
-            padding: "12px 20px",
-            background: "var(--bg-card)",
-            color: "var(--text-secondary)",
-            border: "1px solid var(--border-light)",
-            borderRadius: "var(--radius-md)",
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 border border-red-100 rounded-lg text-sm font-semibold hover:border-red-300 hover:bg-red-50/50 transition-colors shadow-sm"
         >
           <FileCode2 size={18} />
           Programming Problems
         </Link>
         <Link
           href="/admin/problems?category=Stat"
-          className="flex items-center gap-2"
-          style={{
-            padding: "12px 20px",
-            background: "var(--bg-card)",
-            color: "var(--text-secondary)",
-            border: "1px solid var(--border-light)",
-            borderRadius: "var(--radius-md)",
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 border border-red-100 rounded-lg text-sm font-semibold hover:border-red-300 hover:bg-red-50/50 transition-colors shadow-sm"
         >
           <BarChart3 size={18} />
           Stat Problems

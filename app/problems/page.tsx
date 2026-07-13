@@ -6,7 +6,6 @@ import { Search, ChevronRight, CheckCircle, Circle, XCircle, Loader2 } from "luc
 import { Badge } from "@/components/ui/badge";
 import AppNavbar from "@/components/layout/AppNavbar";
 
-// Define a safe TypeScript structure matching the database payload
 interface ProblemData {
   id: string;
   title: string;
@@ -16,18 +15,18 @@ interface ProblemData {
 }
 
 type StatusKey = "solved" | "attempted" | "unsolved";
-const statusIcon: Record<StatusKey, React.ReactNode> = {
-  solved:   <CheckCircle className="w-4 h-4 text-green-500" />,
-  attempted:<Circle      className="w-4 h-4 text-yellow-500" />,
-  unsolved: <XCircle     className="w-4 h-4 text-gray-300"  />,
-};
 
 export default function ProblemsPage() {
   const [problems, setProblems] = useState<ProblemData[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 🎯 Fetch real data from your Prisma PostgreSQL API
+  const statusIcon: Record<StatusKey, React.ReactNode> = {
+    solved: <CheckCircle className="w-4 h-4 text-green-500" />,
+    attempted: <Circle className="w-4 h-4 text-yellow-500" />,
+    unsolved: <XCircle className="w-4 h-4 text-gray-300" />,
+  };
+
   useEffect(() => {
     const fetchProblems = async () => {
       try {
@@ -56,7 +55,6 @@ export default function ProblemsPage() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex gap-4">
           <div className="flex-1 min-w-0">
-            
             {/* Search bar */}
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -78,22 +76,22 @@ export default function ProblemsPage() {
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Status</div>
               </div>
 
-              {loading ? (
-                /* Loading State Spinner */
-                <div className="py-16 flex flex-col items-center justify-center gap-2 text-gray-400">
-                  <Loader2 className="w-8 h-8 animate-spin text-brand-red" />
-                  <p className="text-sm">Loading problem sets...</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-[#F5CBA7]/40">
-                  {filtered.map((p) => (
+              <div className="divide-y divide-[#F5CBA7]/40">
+                {loading ? (
+                  /* Loading State Spinner */
+                  <div className="py-16 flex flex-col items-center justify-center gap-2 text-gray-400">
+                    <Loader2 className="w-8 h-8 animate-spin text-brand-red" />
+                    <p className="text-sm">Loading problem sets...</p>
+                  </div>
+                ) : (
+                  filtered.map((p) => (
                     <div
                       key={p.id}
                       className="grid grid-cols-[1fr_120px_40px_40px] gap-3 px-5 py-3.5 items-center hover:bg-[#FFF9F0] transition-colors group"
                     >
                       {/* Title linked with query parameter ID */}
                       <div>
-                        <Link href={`/coding?id=${p.id}`}>
+                        <Link href={`/coding/${p.id}`}>
                           <div className="text-sm font-medium text-gray-800 group-hover:text-brand-red transition-colors cursor-pointer">
                             {p.title}
                           </div>
@@ -109,10 +107,10 @@ export default function ProblemsPage() {
                           {p.difficulty}
                         </Badge>
                       </div>
-                      
+
                       {/* Navigation Arrow */}
                       <div className="flex justify-center">
-                        <Link href={`/coding?id=${p.id}`}>
+                        <Link href={`/coding/${p.id}`}>
                           <button className="p-1 text-gray-300 group-hover:text-brand-red transition-colors cursor-pointer">
                             <ChevronRight className="w-4 h-4" />
                           </button>
@@ -121,12 +119,12 @@ export default function ProblemsPage() {
 
                       {/* Status icon computed cleanly */}
                       <div className="flex items-center justify-center">
-                        {statusIcon[p.status]}
+                        {statusIcon[p.status] || <XCircle className="w-4 h-4 text-gray-300" />}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
 
               {!loading && filtered.length === 0 && (
                 <div className="py-16 text-center">

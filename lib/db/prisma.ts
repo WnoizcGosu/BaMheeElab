@@ -1,12 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
+// @ts-ignore: Adapter types might not be resolved depending on the local TS environment
 import { PrismaPg } from '@prisma/adapter-pg'
 
-const connectionString = process.env.DATABASE_URL
-const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-
 const prismaClientSingleton = () => {
+  const connectionString = process.env.DATABASE_URL
+  const pool = new Pool({ connectionString })
+  const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
 }
 

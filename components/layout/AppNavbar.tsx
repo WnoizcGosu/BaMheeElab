@@ -19,7 +19,7 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
   const userInitial = (session?.user?.name?.[0] || session?.user?.email?.[0] || username?.[0] || "U").toUpperCase();
 
   // 🎯 ปรับจุดที่ 1: ใช้ (session?.user as any) เพื่อไม่ให้ TS บ่นเรื่องสิทธิ์ role
-  const isAdmin = session?.user?.role === "admin";
+  const isAdmin = session?.user?.role === "admin" || session?.user?.role === "ADMIN";
 
   return (
     <header className="sticky top-0 z-50 bg-brand-red shadow-md">
@@ -34,7 +34,7 @@ export default function AppNavbar({ username = "User" }: AppNavbarProps) {
 
         {/* Nav links */}
         <nav className="hidden md:flex items-center gap-1">
-          {[
+          {!pathname?.startsWith("/admin") && [
             { label: "Problems", href: "/problems" },
           ].map(({ label, href }) => (
             <Link

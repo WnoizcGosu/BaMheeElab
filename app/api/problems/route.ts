@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-// 🎯 ดึงมาใช้จากไฟล์ต่อ Pool ตัวจริงของคุณ (ไม่ต้องนิวขึ้นมาเองใหม่)
 import prisma from "@/lib/db/prisma";
+
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 export async function GET() {
   try {

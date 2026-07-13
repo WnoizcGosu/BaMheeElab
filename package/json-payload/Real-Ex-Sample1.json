@@ -1,0 +1,17 @@
+[
+    {
+    "problemId": "prob-001",
+    "language": "PYTHON",
+    "sourceCode": "print('Hello World')"
+    },
+    {
+    "problemId": "prob-002",
+    "language": "C",
+    "sourceCode": "#include <stdio.h>\nint main() { printf(\"Hello\"); return 0; }"
+    },
+    {
+    "problemId": "prob-003",
+    "language": "CPP",
+    "sourceCode": "#include <iostream>\nint main() { std::cout << \"Hello\"; return 0; }"
+    }
+]

@@ -50,45 +50,45 @@ export default function EditProblemForm({ problem }: { problem: Problem }) {
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Edit Problem</h1>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
               <input
                 required
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
               <textarea
                 required
                 rows={5}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all resize-y"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Category</label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all cursor-pointer"
                 >
                   <option value="Programming">Programming</option>
                   <option value="Stat">Statistical Programming</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Difficulty</label>
                 <select
                   value={formData.difficulty}
                   onChange={(e) =>
@@ -97,7 +97,7 @@ export default function EditProblemForm({ problem }: { problem: Problem }) {
                       difficulty: e.target.value as "Easy" | "Medium" | "Hard" | "God",
                     })
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all cursor-pointer"
                 >
                   <option value="Easy">EASY</option>
                   <option value="Medium">MEDIUM</option>
@@ -109,32 +109,32 @@ export default function EditProblemForm({ problem }: { problem: Problem }) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time Limit (ms)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Time Limit (ms)</label>
                 <input
                   required
                   type="number"
                   value={formData.timeLimit}
                   onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Memory Limit (MB)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Memory Limit (MB)</label>
                 <input
                   required
                   type="number"
                   value={formData.memoryLimit}
                   onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
+                  className="w-full px-4 py-2.5 border border-red-100 rounded-lg bg-white text-gray-900 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-red/10 transition-all"
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Test Cases</h3>
+          <div className="border-t border-red-100 pt-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Test Cases</h3>
             {problem.testCases.length > 0 && (
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-gray-500 mb-4 font-medium">
                 {problem.testCases.length} existing test case(s)
               </p>
             )}
@@ -145,18 +145,18 @@ export default function EditProblemForm({ problem }: { problem: Problem }) {
             />
           </div>
 
-          <div className="border-t border-gray-200 pt-6 flex justify-end gap-3">
+          <div className="border-t border-red-100 pt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-red-100 rounded-lg hover:bg-red-50/50 hover:border-red-200 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-70"
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-brand-red rounded-lg hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
             >
               {isSubmitting ? (
                 <>

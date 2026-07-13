@@ -1,0 +1,696 @@
+"use client";
+import Link from "next/link";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  ChevronLeft, Play, Send, ChevronDown,
+  CheckCircle, XCircle, Clock, Terminal, ChevronUp, Code2,
+  Loader2
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import AppNavbar from "@/components/layout/AppNavbar";
+import { cn } from "@/lib/utils";
+import Editor, { loader } from "@monaco-editor/react";
+import { io, Socket } from "socket.io-client";
+import * as monaco from "monaco-editor";
+import type { SubmissionUpdateEvent } from "@/types/submission";
+import { useSession } from "next-auth/react";
+
+if (typeof window !== "undefined") {
+  loader.config({ monaco });
+}
+
+// ── TYPESCRIPT INTERFACES ──
+interface Pyodide {
+  runPythonAsync: (code: string) => Promise<void>;
+  setStdout: (opts: { batched: (text: string) => void }) => void;
+  setStdin: (opts: { stdin: () => string }) => void;
+}
+
+interface CustomWindow extends Window {
+  pyodideInstance?: Pyodide;
+  loadPyodide?: () => Promise<Pyodide>;
+}
+
+interface RawTestCase {
+  id?: string;
+  test_case_id?: string;
+  passed: boolean;
+  runtime?: number;
+  memory?: number;
+  expectedOutput?: string;
+  actual_output?: string;
+  error_message?: string;
+}
+
+interface RawSubmission {
+  id: string;
+  problem_id: string;
+  language: string;
+  source_code: string;
+  status: string;
+  runtime?: number;
+  memory?: number;
+  submitted_at: string;
+  test_case_results?: RawTestCase[];
+}
+
+const LANGUAGES = ["Python", "C", "C++"];
+
+const LANG_TO_API: Record<string, "PYTHON" | "C" | "CPP"> = {
+  Python: "PYTHON",
+  C: "C",
+  "C++": "CPP",
+};
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+
+const STARTER_CODE: Record<string, string> = {
+  Python: `a, b = map(int, input().split())\nprint(a + b)`,
+  C: `#include <stdio.h>\n\nint main() {\n    return 0;\n}\n`,
+  "C++": `#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}\n`,
+};
+
+interface TestCaseResult {
+  testCaseId: string;
+  status: "Passed" | "Failed";
+  executionTime: number;
+  memoryUsed: number;
+  input: string;
+  expectedOutput: string | null;
+  actualOutput: string | null;
+  errorMessage?: string | null;
+}
+
+interface DBSubmission {
+  id: string;
+  problemId: string;
+  userId: string;
+  language: string;
+  code: string;
+  status: "Passed" | "Failed" | "PENDING" | "JUDGING";
+  executionTime: number;
+  memoryUsed: number;
+  createdAt: Date;
+  testCaseResults: TestCaseResult[];
+}
+
+interface Example {
+  input: string;
+  output: string;
+  explanation: string;
+}
+
+interface ProblemDetail {
+  id: string;
+  title: string;
+  difficulty: string;
+  tags: string[];
+  completion: number;
+  description: string;
+  constraints: string[];
+  examples: Example[];
+}
+
+function formatDate(d: Date) {
+  const dateObj = new Date(d);
+  return dateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) +
+    " · " + dateObj.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+export default function CodingClient({ problem: initialProblem }: { problem: ProblemDetail | null }) {
+  const { data: session } = useSession();
+  const userId = session?.user?.id || "anonymous-user";
+
+  const [problem, setProblem] = useState<ProblemDetail | null>(initialProblem);
+  const [lang, setLang] = useState("Python");
+  const [code, setCode] = useState(STARTER_CODE["Python"]);
+  const [tab, setTab] = useState<"current" | "recent" | "all">("current");
+  const [runStatus, setRunStatus] = useState<"idle" | "running" | "passed" | "failed">("idle");
+  const [output, setOutput] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const [submissions, setSubmissions] = useState<DBSubmission[]>([]);
+
+  const [isPyodideReady, setIsPyodideReady] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+  const [terminalTab, setTerminalTab] = useState<"output" | "input">("output");
+
+  const [terminalHeight, setTerminalHeight] = useState(200);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const socketRef = useRef<Socket | null>(null);
+  const pendingSubmissionId = useRef<string | null>(null);
+
+  const loadSubmissions = useCallback(async () => {
+    if (!problem || userId === "anonymous-user") return;
+    try {
+      const res = await fetch(`/api/submissions?problemId=${problem.id}&t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      const mapped: DBSubmission[] = data.map((s: RawSubmission) => ({
+        id: s.id,
+        problemId: s.problem_id,
+        userId: userId,
+        language: s.language,
+        code: s.source_code,
+        status: s.status === "ACCEPTED" ? "Passed" : 
+               (s.status === "PENDING" || s.status === "JUDGING" ? s.status : "Failed"),
+        executionTime: s.runtime ?? 0,
+        memoryUsed: s.memory ?? 0,
+        createdAt: new Date(s.submitted_at),
+        testCaseResults: (s.test_case_results ?? []).map((tc: RawTestCase) => ({
+          testCaseId: tc.test_case_id ?? tc.id ?? "unknown",
+          status: tc.passed ? "Passed" : "Failed",
+          executionTime: tc.runtime ?? 0,
+          memoryUsed: tc.memory ?? 0,
+          input: "",
+          expectedOutput: tc.expectedOutput ?? null,
+          actualOutput: tc.actual_output ?? null,
+          errorMessage: tc.error_message ?? null,
+        })),
+      }));
+      setSubmissions(mapped);
+
+      if (mapped.length > 0) {
+        const latest = mapped[0];
+        if (latest.status !== "PENDING" && latest.status !== "JUDGING") {
+          setRunStatus(latest.status === "Passed" ? "passed" : "failed");
+        }
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch submissions", err);
+    }
+  }, [problem, userId]);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const problemId = queryParams.get("id");
+
+    if (problemId) {
+      fetch(`/api/problems/${problemId}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data: ProblemDetail | null) => { if (data) setProblem(data); })
+        .catch(() => {});
+    }
+    
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSubmissions();
+  }, [loadSubmissions]); 
+
+  useEffect(() => {
+    if (!session?.user?.id) return; 
+
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("join", session.user.id);
+    });
+
+    socket.on("submission:update", async (event: SubmissionUpdateEvent) => {
+      loadSubmissions();
+      if (event.submissionId === pendingSubmissionId.current && event.status !== "JUDGING" && event.status !== "PENDING") {
+        pendingSubmissionId.current = null;
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session, loadSubmissions]); 
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const newHeight = window.innerHeight - e.clientY;
+      setTerminalHeight(Math.max(40, Math.min(newHeight, window.innerHeight * 0.8)));
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "row-resize";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
+
+  useEffect(() => {
+    const loadPyodide = async () => {
+      const win = window as unknown as CustomWindow;
+      if (win.pyodideInstance) {
+        setIsPyodideReady(true);
+        return;
+      }
+      try {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
+        script.onload = async () => {
+          if (win.loadPyodide) {
+            const pyodide = await win.loadPyodide();
+            win.pyodideInstance = pyodide;
+            setIsPyodideReady(true);
+          }
+        };
+        document.body.appendChild(script);
+      } catch (err) {
+        console.error("Failed to load Pyodide", err);
+      }
+    };
+    loadPyodide();
+  }, []);
+
+  const handleLangChange = (l: string) => {
+    setLang(l);
+    setCode(STARTER_CODE[l] ?? "");
+    setRunStatus("idle");
+    setOutput("");
+  };
+
+  const getMonacoLanguage = (displayLang: string) => {
+    switch (displayLang) {
+      case "C++": return "cpp";
+      default: return displayLang.toLowerCase();
+    }
+  };
+
+  const handleEditorMount = (editor: monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof monaco) => {
+    monacoInstance.languages.registerCompletionItemProvider("python", {
+      provideCompletionItems: (model, position) => {
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+
+        const pythonKeywords = [
+          { label: "print", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "print($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "พิมพ์ข้อมูลออกทางหน้าจอ", range },
+          { label: "input", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "input($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: "รับข้อมูลจากคีย์บอร์ด", range },
+          { label: "len", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "len($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "range", kind: monacoInstance.languages.CompletionItemKind.Function, insertText: "range($1)", insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+          { label: "def", kind: monacoInstance.languages.CompletionItemKind.Keyword, insertText: "def ", range },
+          { label: "import", kind: monacoInstance.languages.CompletionItemKind.Keyword, insertText: "import ", range },
+        ];
+        return { suggestions: pythonKeywords };
+      },
+    });
+  };
+
+  const handleRun = async () => {
+    setRunStatus("running");
+    setTerminalTab("output");
+
+    if (lang !== "Python") {
+      setOutput(`Error: Browser execution is currently only supported for Python.`);
+      setRunStatus("failed");
+      return;
+    }
+
+    if (!isPyodideReady) {
+      setOutput("Initializing Python Environment...");
+      setRunStatus("failed");
+      return;
+    }
+
+    const win = window as unknown as CustomWindow;
+    const pyodide = win.pyodideInstance;
+    
+    if (!pyodide) {
+      setOutput("Pyodide instance is not available.");
+      setRunStatus("failed");
+      return;
+    }
+
+    let currentOutput = "";
+    const inputLines = customInput.split('\n');
+    let inputIndex = 0;
+
+    pyodide.setStdout({ batched: (text: string) => { currentOutput += text + "\n"; } });
+    pyodide.setStdin({
+      stdin: () => {
+        if (inputIndex < inputLines.length) return inputLines[inputIndex++] + "\n";
+        return "\n";
+      }
+    });
+
+    try {
+      setOutput("Running...");
+      await pyodide.runPythonAsync(code);
+      setOutput(currentOutput || "Code executed successfully. (No output)");
+      setRunStatus("passed");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setOutput(error.message);
+      } else {
+        setOutput(String(error));
+      }
+      setRunStatus("failed");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!problem) return;
+    const apiLang = LANG_TO_API[lang];
+    if (!apiLang) {
+      setOutput(`Language "${lang}" is not supported for submission.`);
+      return;
+    }
+
+    setRunStatus("running");
+    setOutput("⏳ Submitting...");
+    setTerminalTab("output");
+    setTab("recent");
+
+    try {
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problemId: problem.id,
+          language: apiLang,
+          sourceCode: code,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setOutput(`❌ Submission failed: ${err.error ?? res.statusText}`);
+        setRunStatus("failed");
+        return;
+      }
+
+      const { submissionId } = await res.json();
+      pendingSubmissionId.current = submissionId; 
+      
+      loadSubmissions();
+
+    } catch (e: unknown) {
+      setOutput(`❌ Network error: ${e instanceof Error ? e.message : String(e)}`);
+      setRunStatus("failed");
+    }
+  };
+
+  if (!problem) {
+    return (
+      <div className="h-screen bg-brand-cream flex items-center justify-center text-gray-500">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading challenge engine...
+      </div>
+    );
+  }
+
+  const recentSub = submissions[0] ?? null;
+
+  const totalCases = recentSub?.testCaseResults?.length || 0;
+  const passedCases = recentSub?.testCaseResults?.filter(tc => tc.status === "Passed").length || 0;
+
+  return (
+    <div className="h-screen flex flex-col bg-brand-cream overflow-hidden">
+      <AppNavbar username={session?.user?.name || "User"} />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT Panel */}
+        <div className="w-100 shrink-0 flex flex-col bg-white border-r border-wave-tan overflow-hidden">
+          <div className="px-5 pt-5 pb-4 border-b border-wave-tan">
+            <Link href="/problems">
+              <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-red mb-3 transition-colors">
+                <ChevronLeft className="w-3 h-3" /> back
+              </button>
+            </Link>
+            <h1 className="font-display text-xl font-bold text-gray-900 mb-2">{problem.title}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={(problem.difficulty?.toLowerCase() as "easy" | "medium" | "hard") || "default"}>
+                {problem.difficulty}
+              </Badge>
+              {problem.tags?.map((t: string) => (
+                <Badge key={t} variant="topic">{t}</Badge>
+              ))}
+              <span className="text-xs text-gray-400 ml-auto">{problem.completion}% acceptance</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5 text-sm text-gray-700">
+            <div>
+              <h2 className="font-display font-bold text-gray-900 mb-2">Description</h2>
+              <p className="leading-relaxed whitespace-pre-line">{problem.description}</p>
+            </div>
+            <div>
+              <h2 className="font-display font-bold text-gray-900 mb-2">Constraints</h2>
+              <ul className="space-y-1">
+                {problem.constraints?.map((c: string) => (
+                  <li key={c} className="flex items-start gap-2">
+                    <span className="text-brand-red mt-0.5">•</span>
+                    <code className="font-code text-xs bg-brand-cream px-1.5 py-0.5 rounded">{c}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {problem.examples?.map((ex: Example, i: number) => (
+              <div key={i}>
+                <h2 className="font-display font-bold text-gray-900 mb-2">Example {i + 1}</h2>
+                <div className="bg-brand-cream rounded-xl border border-wave-tan overflow-hidden">
+                  <div className="grid grid-cols-2 divide-x divide-wave-tan">
+                    <div className="p-3 min-w-0 overflow-x-auto">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Input</div>
+                      <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.input}</code>
+                    </div>
+                    <div className="p-3 min-w-0 overflow-x-auto">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Output</div>
+                      <code className="font-code text-xs text-gray-800 whitespace-pre-wrap">{ex.output}</code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT Panel */}
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex items-center px-4 py-2.5 bg-white border-b border-wave-tan gap-3">
+            <div className="flex items-center gap-1 bg-brand-cream rounded-full p-0.5 border border-wave-tan">
+              {(["current", "recent", "all"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-medium capitalize transition-all",
+                    tab === t ? "bg-brand-red text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {tab === "current" && (
+              <div className="relative">
+                <select
+                  value={lang}
+                  onChange={(e) => handleLangChange(e.target.value)}
+                  className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-brand-cream border border-wave-tan rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-red cursor-pointer"
+                >
+                  {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+              </div>
+            )}
+
+            {tab === "current" && (
+              <div className="flex items-center gap-2 ml-auto">
+                <Button variant="outline" size="sm" onClick={handleRun} disabled={runStatus === "running"} className="h-8 text-xs gap-1.5">
+                  {runStatus === "running" ? <Clock className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Run
+                </Button>
+                <Button size="sm" onClick={handleSubmit} disabled={runStatus === "running"} className="h-8 text-xs gap-1.5">
+                  <Send className="w-3 h-3" /> Submit
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* TAB CONTENT: CURRENT */}
+          {tab === "current" && (
+            <div className="flex-1 overflow-hidden flex flex-col bg-white">
+              <div className="flex-1 w-full pt-2 bg-white" style={{ minHeight: "100px" }}>
+                <Editor
+                  height="100%"
+                  width="100%"
+                  language={getMonacoLanguage(lang)}
+                  value={code}
+                  onChange={(value) => setCode(value || "")}
+                  onMount={handleEditorMount}
+                  options={{
+                    fontSize: 14,
+                    fontFamily: "var(--font-code), monospace",
+                    minimap: { enabled: false },
+                    scrollbar: { vertical: "visible", horizontal: "visible" },
+                    lineNumbers: "on",
+                    automaticLayout: true,
+                    tabSize: 4,
+                    fixedOverflowWidgets: true,
+                    tabCompletion: "on",
+                  }}
+                />
+              </div>
+
+              <div
+                className={cn("h-1.5 bg-wave-tan cursor-row-resize flex items-center justify-center transition-colors hover:bg-brand-red", isDragging && "bg-brand-red")}
+                onMouseDown={() => setIsDragging(true)}
+              >
+                <div className="w-8 h-0.5 bg-white/50 rounded-full" />
+              </div>
+
+              <div className="bg-white flex flex-col" style={{ height: `${terminalHeight}px` }}>
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-wave-tan bg-brand-cream shrink-0">
+                  <button onClick={() => setTerminalTab("output")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "output" ? "text-gray-800 bg-wave-tan/30" : "text-gray-500 hover:text-gray-700")}>
+                    <Terminal className="w-4 h-4" /> Output
+                  </button>
+                  <button onClick={() => setTerminalTab("input")} className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded", terminalTab === "input" ? "text-gray-800 bg-wave-tan/30" : "text-gray-500 hover:text-gray-700")}>
+                    <Code2 className="w-4 h-4" /> Custom Input
+                  </button>
+                </div>
+
+                <div className="flex-1 p-0 overflow-hidden relative bg-white">
+                  <div className="h-full w-full p-4 overflow-y-auto">
+                    {terminalTab === "output" ? (
+                      output ? <pre className={cn("font-code text-xs leading-relaxed whitespace-pre-wrap", runStatus === "failed" ? "text-red-500" : "text-gray-700")}>{output}</pre> : <div className="h-full flex items-center justify-center"><p className="text-xs text-gray-300 italic">Click &ldquo;Run&rdquo; to test your code</p></div>
+                    ) : (
+                      <textarea value={customInput} onChange={(e) => setCustomInput(e.target.value)} placeholder="Enter custom input here..." className="h-full w-full p-4 font-code text-xs text-gray-700 resize-none outline-none border-none" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: RECENT */}
+          {tab === "recent" && (
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              {recentSub ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-display font-bold text-gray-800 text-base">Latest Submission</h2>
+                    <span className="text-xs text-gray-400">{formatDate(recentSub.createdAt)}</span>
+                  </div>
+
+                  <div className={cn("rounded-xl p-4 border flex items-center gap-3", 
+                    recentSub.status === "Passed" ? "bg-green-50 border-green-200" : 
+                    (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200"
+                  )}>
+                    {recentSub.status === "Passed" ? <CheckCircle className="w-5 h-5 text-green-500" /> : 
+                     (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" /> : 
+                     <XCircle className="w-5 h-5 text-red-500" />}
+                    
+                    <div>
+                      <div className={cn("text-sm font-bold", 
+                        recentSub.status === "Passed" ? "text-green-700" : 
+                        (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "text-yellow-700" : "text-red-700"
+                      )}>
+                        {recentSub.status === "Passed" ? "Accepted" : 
+                         (recentSub.status === "PENDING" || recentSub.status === "JUDGING") ? "Judging in Progress..." : "Wrong Answer"}
+                      </div>
+                      
+                      {recentSub.status !== "PENDING" && recentSub.status !== "JUDGING" ? (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          Passed {passedCases} / {totalCases} Cases · Runtime: {recentSub.executionTime}ms · Memory: {recentSub.memoryUsed}MB
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          กำลังรันโค้ดและทดสอบ Test Cases...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {(recentSub.status !== "PENDING" && recentSub.status !== "JUDGING") && (
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Case Details</h3>
+                      {recentSub.testCaseResults.map((res, index) => (
+                        <div key={res.testCaseId} className="bg-gray-50 border rounded-lg p-3 text-xs font-code space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-gray-600">#Case {index + 1}</span>
+                            <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", res.status === "Passed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>{res.status}</span>
+                          </div>
+                          {res.errorMessage && (
+                            <div className="text-red-500 mt-1">Error: {res.errorMessage}</div>
+                          )}
+                          {res.expectedOutput != null && (
+                            <div className="text-gray-400">
+                              Expected: <span className="text-gray-600">{res.expectedOutput}</span>
+                              {res.actualOutput != null && <> · Got: <span className="text-gray-600">{res.actualOutput}</span></>}
+                            </div>
+                          )}
+                          {res.expectedOutput == null && (
+                            <div className="text-gray-300 italic">Hidden test case</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="bg-brand-cream rounded-xl border border-wave-tan overflow-hidden">
+                    <pre className="font-code text-xs text-gray-700 p-4 overflow-x-auto whitespace-pre-wrap">{recentSub.code}</pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center py-20 text-gray-400 text-sm">No submissions yet</div>
+              )}
+            </div>
+          )}
+
+          {/* TAB CONTENT: ALL */}
+          {tab === "all" && (
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              {submissions.length > 0 ? (
+                <div className="space-y-3">
+                  {submissions.map((sub) => {
+                    const isExpanded = expandedId === sub.id;
+                    const isProcessing = sub.status === "PENDING" || sub.status === "JUDGING";
+                    
+                    return (
+                      <div key={sub.id} className="bg-white rounded-xl border border-wave-tan overflow-hidden shadow-sm">
+                        <button onClick={() => setExpandedId(isExpanded ? null : sub.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-cream text-left">
+                          <span className={cn("text-xs font-semibold", 
+                            sub.status === "Passed" ? "text-green-600" : 
+                            isProcessing ? "text-yellow-500" : "text-red-500"
+                          )}>
+                            {sub.status === "Passed" ? "Accepted" : 
+                             isProcessing ? "Judging..." : "Wrong Answer"}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-auto">{formatDate(sub.createdAt)}</span>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                        {isExpanded && !isProcessing && (
+                          <div className="border-t border-wave-tan bg-brand-cream p-4 space-y-3">
+                            <div className="grid grid-cols-3 gap-2 text-[11px] font-code bg-white/60 p-2 rounded border border-orange-100">
+                              <div>🚀 Time: {sub.executionTime}ms</div>
+                              <div>📦 Memory: {sub.memoryUsed}MB</div>
+                              <div>📝 Lang: {sub.language}</div>
+                            </div>
+                            <pre className="font-code text-xs text-gray-700 p-3 bg-white border rounded-lg whitespace-pre-wrap max-h-64 overflow-y-auto">{sub.code}</pre>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center py-20 text-gray-400 text-sm">No submission logs found</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
