@@ -45,34 +45,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         let inputUrl = null;
         let outputUrl = null;
 
-        try {
-          if (inputContent) {
-            const inputKey = `problems/${id}/testcases/${tcId}/input.txt`;
-            await s3Client.send(new PutObjectCommand({
-              Bucket: BUCKET_NAME,
-              Key: inputKey,
-              Body: inputContent,
-              ContentType: "text/plain"
-            }));
-            inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
-          }
-        } catch (s3InputError) {
-          console.warn(`[S3_PUT_WARN] input upload failed:`, s3InputError);
+        // ไม่ดัก error ตรงนี้แล้วปล่อยผ่าน — ถ้า upload ไป MinIO ล้มเหลว ต้อง fail
+        // การอัปเดต test case ทั้งก้อน (ให้ throw ขึ้นไปที่ catch ข้างนอก) ไม่งั้น
+        // test case จะถูกสร้างแบบดูเหมือนสำเร็จทั้งที่ไฟล์จริงหายไป
+        if (inputContent) {
+          const inputKey = `problems/${id}/testcases/${tcId}/input.txt`;
+          await s3Client.send(new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: inputKey,
+            Body: inputContent,
+            ContentType: "text/plain"
+          }));
+          inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
         }
 
-        try {
-          if (outputContent) {
-            const outputKey = `problems/${id}/testcases/${tcId}/output.txt`;
-            await s3Client.send(new PutObjectCommand({
-              Bucket: BUCKET_NAME,
-              Key: outputKey,
-              Body: outputContent,
-              ContentType: "text/plain"
-            }));
-            outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
-          }
-        } catch (s3OutputError) {
-          console.warn(`[S3_PUT_WARN] output upload failed:`, s3OutputError);
+        if (outputContent) {
+          const outputKey = `problems/${id}/testcases/${tcId}/output.txt`;
+          await s3Client.send(new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: outputKey,
+            Body: outputContent,
+            ContentType: "text/plain"
+          }));
+          outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
         }
 
         return prisma.testCase.create({

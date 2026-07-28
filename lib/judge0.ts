@@ -19,8 +19,8 @@ export interface Judge0Submission {
   stdin?: string;
   expected_output?: string;
   cpu_time_limit?: number;     // seconds
+  wall_time_limit?: number;    // seconds
   memory_limit?: number;       // KB
-  callback_url?: string;
 }
 
 export interface Judge0Result {
