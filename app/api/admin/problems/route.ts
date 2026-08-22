@@ -29,30 +29,29 @@ export async function POST(request: NextRequest) {
         let inputUrl = null;
         let outputUrl = null;
 
-        try {
-          if (inputContent) {
-            const inputKey = `problems/${problemId}/testcases/${tcId}/input.txt`;
-            await s3Client.send(new PutObjectCommand({
-              Bucket: BUCKET_NAME,
-              Key: inputKey,
-              Body: inputContent,
-              ContentType: "text/plain"
-            }));
-            inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
-          }
+        // ไม่ดัก error ตรงนี้แล้วปล่อยผ่าน — ถ้า upload ไป MinIO ล้มเหลว ต้อง fail
+        // การสร้างโจทย์ทั้งก้อน (ให้ throw ขึ้นไปที่ catch ข้างนอก) ไม่งั้น test
+        // case จะถูกสร้างแบบดูเหมือนสำเร็จทั้งที่ไฟล์จริงหายไป
+        if (inputContent) {
+          const inputKey = `problems/${problemId}/testcases/${tcId}/input.txt`;
+          await s3Client.send(new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: inputKey,
+            Body: inputContent,
+            ContentType: "text/plain"
+          }));
+          inputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${inputKey}`;
+        }
 
-          if (outputContent) {
-            const outputKey = `problems/${problemId}/testcases/${tcId}/output.txt`;
-            await s3Client.send(new PutObjectCommand({
-              Bucket: BUCKET_NAME,
-              Key: outputKey,
-              Body: outputContent,
-              ContentType: "text/plain"
-            }));
-            outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
-          }
-        } catch (s3Error) {
-          console.warn(`[S3_POST_WARN] S3 Error:`, s3Error);
+        if (outputContent) {
+          const outputKey = `problems/${problemId}/testcases/${tcId}/output.txt`;
+          await s3Client.send(new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: outputKey,
+            Body: outputContent,
+            ContentType: "text/plain"
+          }));
+          outputUrl = `http://127.0.0.1:9000/${BUCKET_NAME}/${outputKey}`;
         }
 
         preparedTestCases.push({

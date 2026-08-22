@@ -1,6 +1,7 @@
 // lib/db/judge-prisma-store.ts
 import { prisma } from "@/lib/prisma";
 import { SubmissionStatus as PrismaStatus } from "@prisma/client";
+import { downloadTextFromUrl } from "@/lib/minio";
 
 export interface TestCaseDTO {
   id: string;
@@ -22,17 +23,35 @@ export async function getProblemWithTestCases(problemId: string) {
 
   if (!problem) return null;
 
+  const testCases: TestCaseDTO[] = await Promise.all(
+    problem.test_cases.map(async (tc) => {
+      // input_content/output_content ว่างได้ถ้า test case ถูกเก็บเป็นไฟล์ใน MinIO
+      // แทนที่จะ inline — ต้อง fallback ไปโหลดจาก input_url/output_url ไม่งั้น
+      // จะตรวจกับสตริงว่างแบบเงียบๆ
+      const input =
+        tc.input_content ?? (tc.input_url ? await downloadTextFromUrl(tc.input_url) : null);
+      const expectedOutput =
+        tc.output_content ?? (tc.output_url ? await downloadTextFromUrl(tc.output_url) : null);
+      if (input == null || expectedOutput == null) {
+        throw new Error(
+          `test case ${tc.id} has no input/output (neither inline content nor URL)`
+        );
+      }
+      return {
+        id: tc.id,
+        input,
+        expectedOutput,
+        isHidden: !tc.is_public, // ถ้าไม่ใช่ Public แสดงว่าเป็น Hidden Test Case
+      };
+    })
+  );
+
   return {
     id: problem.id,
     title: problem.title,
     timeLimit: problem.time_limit,       // แมปเข้าหา camelCase ของ Worker
     memoryLimit: problem.memory_limit,   // แมปเข้าหา camelCase ของ Worker
-    testCases: problem.test_cases.map((tc) => ({
-      id: tc.id,
-      input: tc.input_content || "",
-      expectedOutput: tc.output_content || "",
-      isHidden: !tc.is_public // ถ้าไม่ใช่ Public แสดงว่าเป็น Hidden Test Case
-    }))
+    testCases,
   };
 }
 

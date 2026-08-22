@@ -8,7 +8,8 @@ export type SubmissionStatus =
   | "TIME_LIMIT"
   | "MEMORY_LIMIT"
   | "RUNTIME_ERROR"
-  | "COMPILE_ERROR";
+  | "COMPILE_ERROR"
+  | "SYSTEM_ERROR";
 
 export interface SubmitRequest {
   problemId: string;

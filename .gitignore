@@ -52,3 +52,9 @@ data/users.json
 image.png
 test-merge-develop.md
 scripts/seed-admin-user.ts
+
+# planning docs from the judge-pipeline fix session (local only, not shared)
+/FIX-PRIORITY.md
+/FIX-PRIORITY.html
+/docs/CONTEXT.md
+/docs/adr/

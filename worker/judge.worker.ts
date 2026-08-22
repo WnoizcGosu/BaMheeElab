@@ -5,7 +5,7 @@
  *   1. update submission -> JUDGING
  *   2. emit JUDGING socket event
  *   3. fetch Problem + TestCase[] (including hidden)
- *   4. submit all test cases to Judge0 in parallel
+ *   4. submit all test cases to Judge0 in parallel (capped by judge0Limit)
  *   5. poll until all verdicts ready
  *   6. map verdict -> results[]
  *   7. score = (passed / total) * 100
@@ -14,10 +14,16 @@
  *  10. upsert LeaderboardEntry + Redis ZSET
  *  11. emit final socket event
  *
+ * Retries: BullMQ attempts/backoff are set at enqueue time
+ * (app/api/submissions/route.ts). If every attempt fails, `worker.on("failed")`
+ * marks the submission SYSTEM_ERROR so it never gets stuck at JUDGING forever
+ * (see docs/adr/0001-judge-pipeline-reliability-fixes.md).
+ *
  * Run: `npx tsx worker/judge.worker.ts`
  */
 
 import { Worker, type Job } from "bullmq";
+import pLimit from "p-limit";
 import type {
   JudgeJobPayload,
   SubmissionResult,
@@ -27,8 +33,6 @@ import { JUDGE_QUEUE_NAME } from "@/lib/queue";
 import { REDIS_URL, redis, LEADERBOARD_KEY } from "@/lib/redis";
 import {
   LANGUAGE_ID,
-  JUDGE0_CALLBACK_URL,
-  JUDGE0_CALLBACK_SECRET,
   submitToJudge0,
   waitForJudge0,
   mapJudge0Status,
@@ -48,6 +52,15 @@ import {
 } from "@/lib/minio";
 
 type ResultRow = SubmissionResult["results"][number];
+
+/**
+ * Judge0 (judge0.conf: NUMBER_OF_WORKERS=2) is the real bottleneck, not this
+ * worker's own job concurrency. Every call into Judge0 — from any job, from
+ * any test case within a job — goes through this single limiter so the two
+ * dials (job concurrency x per-submission test-case fanout) can't multiply
+ * past what Judge0 can actually drain within the poll timeout.
+ */
+const judge0Limit = pLimit(Number(process.env.JUDGE0_MAX_CONCURRENCY || 2));
 
 function parseRuntimeSec(s: string | null): number | null {
   if (!s) return null;
@@ -95,32 +108,20 @@ async function judgeOneTestCase(
   timeLimitMs: number,
   memoryLimitMb: number
 ): Promise<{ row: ResultRow; status: SubmissionStatus; resultUrl: string | null }> {
-  const callbackUrl =
-    JUDGE0_CALLBACK_URL
-      ? `${JUDGE0_CALLBACK_URL.replace(/\/$/, "")}/api/judge/callback?secret=${encodeURIComponent(JUDGE0_CALLBACK_SECRET)}`
-      : undefined;
+  const timeLimitSec = Math.max(1, Math.ceil(timeLimitMs / 1000));
 
-  const { token } = await submitToJudge0({
-    source_code: sourceCode,
-    language_id: LANGUAGE_ID[language],
-    stdin: tc.input,
-    expected_output: tc.expectedOutput,
-    cpu_time_limit: Math.max(1, Math.ceil(timeLimitMs / 1000)),
-    memory_limit: memoryLimitMb * 1024, // MB -> KB
-    callback_url: callbackUrl,
+  const r: Judge0Result = await judge0Limit(async () => {
+    const { token } = await submitToJudge0({
+      source_code: sourceCode,
+      language_id: LANGUAGE_ID[language],
+      stdin: tc.input,
+      expected_output: tc.expectedOutput,
+      cpu_time_limit: timeLimitSec,
+      wall_time_limit: timeLimitSec,
+      memory_limit: memoryLimitMb * 1024, // MB -> KB
+    });
+    return waitForJudge0(token);
   });
-
-  console.log("DEBUG_PAYLOAD:", JSON.stringify({
-    source_code: sourceCode,
-    language_id: LANGUAGE_ID[language],
-    stdin: tc.input,
-    expected_output: tc.expectedOutput,
-    cpu_time_limit: Math.max(1, Math.ceil(timeLimitMs / 1000)),
-    memory_limit: memoryLimitMb * 1024, // MB -> KB
-    callback_url: callbackUrl,
-  }, null, 2));
-
-  const r: Judge0Result = await waitForJudge0(token);
   const status = mapJudge0Status(r.status.id, r.status.description);
   const passed = status === "ACCEPTED";
   const runtime = parseRuntimeSec(r.time);
@@ -238,7 +239,9 @@ async function processJob(job: Job<JudgeJobPayload>) {
 
 const worker = new Worker<JudgeJobPayload>(JUDGE_QUEUE_NAME, processJob, {
   connection: { url: REDIS_URL },
-  concurrency: Number(process.env.JUDGE_WORKER_CONCURRENCY || 4),
+  // Judge0 throughput is bounded by judge0Limit above, not this. This only
+  // caps how many jobs the worker pulls off the queue at once.
+  concurrency: Number(process.env.JUDGE_WORKER_CONCURRENCY || 10),
 });
 
 worker.on("ready", () => {
@@ -247,11 +250,48 @@ worker.on("ready", () => {
 });
 
 worker.on("failed", (job, err) => {
+  const attemptsMade = job?.attemptsMade ?? 0;
+  const attemptsMax = job?.opts?.attempts ?? 1;
+
   // eslint-disable-next-line no-console
   console.error(
-    `[worker] job ${job?.id ?? "?"} failed for submission ${job?.data?.submissionId ?? "?"}:`,
+    `[worker] job ${job?.id ?? "?"} failed for submission ${job?.data?.submissionId ?? "?"} ` +
+      `(attempt ${attemptsMade}/${attemptsMax}):`,
     err
   );
+
+  // Still retries left -> stay silent, submission is still shown as JUDGING.
+  if (attemptsMade < attemptsMax) return;
+
+  const submissionId = job?.data?.submissionId;
+  const userId = job?.data?.userId;
+  if (!submissionId || !userId) return;
+
+  // Final attempt exhausted: this is our fault, not the student's code, and
+  // the submission must not stay stuck at JUDGING forever.
+  (async () => {
+    await finalizeSubmission(submissionId, {
+      status: "SYSTEM_ERROR",
+      score: 0,
+      runtime: null,
+      memory: null,
+      resultUrl: null,
+      results: [],
+    });
+    emitSubmissionUpdate(userId, {
+      submissionId,
+      status: "SYSTEM_ERROR",
+      score: 0,
+      runtime: null,
+      memory: null,
+    });
+  })().catch((finalizeErr) => {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[worker] failed to mark submission ${submissionId} as SYSTEM_ERROR:`,
+      finalizeErr
+    );
+  });
 });
 
 worker.on("completed", (job, ret) => {

@@ -11,6 +11,7 @@ import { authOptions } from  "@/lib/auth";
 import { Language as PrismaLanguage } from "@prisma/client";
 
 const LANGS: ReadonlySet<string> = new Set(["PYTHON", "C", "CPP"]);
+const MAX_SOURCE_CODE_BYTES = 100 * 1024; // 100 KB
 
 // ─── [GET] ดึงประวัติการส่งโค้ดของข้อนั้นๆ ───
 export async function GET(req: NextRequest) {
@@ -69,6 +70,13 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  if (Buffer.byteLength(body.sourceCode, "utf-8") > MAX_SOURCE_CODE_BYTES) {
+    return NextResponse.json(
+      { error: `sourceCode exceeds ${MAX_SOURCE_CODE_BYTES / 1024}KB limit` },
+      { status: 400 }
+    );
+  }
   console.log(body.language)
 
   // บันทึกลง PostgreSQL ผ่าน Prisma
@@ -93,6 +101,8 @@ export async function POST(req: NextRequest) {
   await judgeQueue.add("judge", payload, {
     removeOnComplete: 100,
     removeOnFail: 100,
+    attempts: 3,
+    backoff: { type: "exponential", delay: 2000 }, // 2s, 4s, 8s
   });
 
   // ส่ง HTTP Status 202 กลับไปที่หน้าบ้าน
