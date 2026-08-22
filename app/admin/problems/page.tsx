@@ -1,6 +1,8 @@
 import prisma from "@/lib/db/prisma";
 import ProblemsClient from "./problems-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProblemsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
   const { category } = await searchParams;
   

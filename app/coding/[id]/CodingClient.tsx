@@ -420,7 +420,7 @@ export default function CodingClient({ problem: initialProblem }: { problem: Pro
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT Panel */}
-        <div className="w-100 shrink-0 flex flex-col bg-white border-r border-wave-tan overflow-hidden">
+        <div className="w-1/2 shrink-0 flex flex-col bg-white border-r border-wave-tan overflow-hidden">
           <div className="px-5 pt-5 pb-4 border-b border-wave-tan">
             <Link href="/problems">
               <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-red mb-3 transition-colors">

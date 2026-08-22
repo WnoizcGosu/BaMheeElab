@@ -2,6 +2,8 @@ import Link from "next/link";
 import prisma from "@/lib/db/prisma";
 import { FileCode2, BarChart3, Plus } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminDashboard() {
   const dbProblems = await prisma.problem.findMany();
   

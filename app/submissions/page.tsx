@@ -2,6 +2,8 @@ import Link from "next/link";
 import prisma from "@/lib/db/prisma";
 import { CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function SubmissionsIndexPage() {
   const dbSubmissions = await prisma.submission.findMany({
     include: {
