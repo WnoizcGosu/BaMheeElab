@@ -186,7 +186,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-5">
               {/* Combined Social Anchor Link targeting group hover */}
               <a 
-                href="https://www.instagram.com/comsci40.ku/" 
+                href="https://www.instagram.com/ku.comsciclub/" 
                 target="_blank" 
                 rel="noreferrer" 
                 className="group flex items-center gap-3 w-fit"
@@ -196,7 +196,7 @@ export default function LandingPage() {
                 
                 {/* The Text Label: inherits group hover state synced perfectly */}
                 <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors duration-200 tracking-wide">
-                  comsci40.ku
+                  ku.comsciclub
                 </span>
               </a>
             </div>
